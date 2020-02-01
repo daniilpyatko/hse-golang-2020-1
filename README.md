@@ -46,6 +46,6 @@
 Как забрать в свой репозиторий обновления из основного:
 ```
 # будучи в своём репозитории
-git pull https://gitlab.com/rvasily/hse-golang-2020-2.git master
+git pull https://gitlab.com/rvasily/hse-golang-2020-1.git master
 git push origin master
 ```
