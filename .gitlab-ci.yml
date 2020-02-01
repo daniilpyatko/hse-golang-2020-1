@@ -1,0 +1,78 @@
+image: golang:1.13
+
+# waiting for https://gitlab.com/gitlab-org/gitlab-ce/issues/18041
+
+variables:
+  REPO_NAME: go-tests
+
+before_script:
+  - mkdir -p $GOPATH/src/$(dirname $REPO_NAME)
+  - ln -svf $CI_PROJECT_DIR $GOPATH/src/$REPO_NAME
+  - cd $GOPATH/src/$REPO_NAME
+
+stages:
+    - homework
+
+hw1:
+    stage: homework
+    script:
+      - if [[ -n $(gofmt -l 1/99_hw/game/) ]]; then echo "Необходимо отформтаировать код при помощи gofmt" && exit 1; fi
+      - go test -v ./1/99_hw/...
+      - echo "Домашка 1 пройдена! Пишите преподавателю"
+    only:
+      changes:
+        - 1/99_hw/game/*
+
+hw2:
+    stage: homework
+    script:
+      - if [[ -n $(gofmt -l ./2/99_hw/signer/) ]]; then echo "Необходимо отформтаировать код при помощи gofmt" && exit 1; fi
+      - go test -v -race ./2/99_hw/...
+      - echo "Домашка 2 пройдена! Пишите преподавателю"
+    only:
+      changes:
+        - 2/99_hw/signer/*
+
+# hw4:
+#     stage: homework
+#     script:
+#       - if [[ -n $(gofmt -l ./4/99_hw/) ]]; then echo "Необходимо отформтаировать код при помощи gofmt" && exit 1; fi
+#       - x=$(go test -v -cover ./4/99_hw... | grep coverage) && if [[ "$x" != *"100.0%"* ]]; then echo "$x" && exit 1; fi
+#       - echo "Домашка 4 пройдена! Пишите преподавателю"
+#     only:
+#       changes:
+#         - 4/99_hw/*
+
+# hw5_codegen:
+#     stage: homework
+#     script:
+#       - if [[ -n $(gofmt -l ./5/99_hw/codegen/) ]]; then echo "Необходимо отформтаировать код при помощи gofmt" && exit 1; fi
+#       - cd 5/99_hw/codegen
+#       - go build handlers_gen/* && ./codegen api.go api_handlers.go
+#       - go test -v
+#       - echo "Домашка 5 пройдена! Пишите преподавателю"
+#     only:
+#       changes:
+#         - 5/99_hw/codegen/*
+
+# hw7:
+#     stage: homework
+#     script:
+#       - if [[ -n $(gofmt -l ./7/99_hw/) ]]; then echo "Необходимо отформтаировать код при помощи gofmt" && exit 1; fi
+#       - cd 7/99_hw
+#       - go test -v -race
+#       - echo "Домашка 7 пройдена! Пишите преподавателю"
+#     only:
+#       changes:
+#         - 7/99_hw/*
+
+# hw8:
+#     stage: homework
+#     script:
+#       - if [[ -n $(gofmt -l ./8/99_hw/) ]]; then echo "Необходимо отформтаировать код при помощи gofmt" && exit 1; fi
+#       - cd 8/99_hw
+#       - go test -v
+#       - echo "Домашка 8 пройдена! Пишите преподавателю"
+#     only:
+#       changes:
+#         - 8/99_hw/*

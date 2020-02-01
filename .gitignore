@@ -1,0 +1,8 @@
+.idea
+.DS_Store
+.vscode
+.vagrant
+*.exe
+solution_test.go
+solution.go
+solution*
