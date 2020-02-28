@@ -3,8 +3,11 @@ package main
 import (
 	"sort"
 	"strconv"
+	"strings"
 	"sync"
 )
+
+const iterMultiHash = 6
 
 func main() {}
 
@@ -54,18 +57,14 @@ func SafeCountMd5(curS string) string {
 
 func CountSingleHash(s string, out chan interface{}) {
 	m1 := SafeCountMd5(s)
-	wg := &sync.WaitGroup{}
-	wg.Add(2)
-	tmp := func(p *string, s string) {
-		*p = DataSignerCrc32(s)
-		defer wg.Done()
+	tmp := func(ch chan string, s string) {
+		ch <- DataSignerCrc32(s)
 	}
-	res1 := ""
-	res2 := ""
-	go tmp(&res1, s)
-	go tmp(&res2, m1)
-	wg.Wait()
-	p1 := res1 + "~" + res2
+	res1 := make(chan string, 1)
+	res2 := make(chan string, 1)
+	go tmp(res1, s)
+	go tmp(res2, m1)
+	p1 := <-res1 + "~" + <-res2
 	out <- p1
 }
 
@@ -95,11 +94,11 @@ func CountMultiHash(s string, out chan interface{}) {
 		ar[ind] = DataSignerCrc32(strconv.Itoa(ind) + s)
 		defer wg.Done()
 	}
-	for i := 0; i < 6; i++ {
+	for i := 0; i < iterMultiHash; i++ {
 		go tmp(i, s)
 	}
 	wg.Wait()
-	for i := 0; i < 6; i++ {
+	for i := 0; i < iterMultiHash; i++ {
 		p1 += ar[i]
 	}
 	out <- p1
@@ -125,12 +124,6 @@ func CombineResults(in, out chan interface{}) {
 		res = append(res, data.(string))
 	}
 	sort.Strings(res)
-	p1 := ""
-	for i, s := range res {
-		p1 += s
-		if i != len(res)-1 {
-			p1 += "_"
-		}
-	}
+	p1 := strings.Join(res, "_")
 	out <- p1
 }
