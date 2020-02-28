@@ -18,14 +18,14 @@ func StartJob(curJob job, in chan interface{}, out chan interface{}, curWg *sync
 }
 
 func ExecutePipeline(jobs ...job) {
-	chans := []chan interface{}{}
-	for i := 0; i < len(jobs)+1; i++ {
-		chans = append(chans, make(chan interface{}, 100))
-	}
+	in := make(chan interface{}, 100)
+	out := make(chan interface{}, 100)
 	wg := &sync.WaitGroup{}
 	for i := len(jobs) - 1; i >= 0; i-- {
 		wg.Add(1)
-		go StartJob(jobs[i], chans[i], chans[i+1], wg)
+		go StartJob(jobs[i], in, out, wg)
+		out = in
+		in = make(chan interface{}, 100)
 	}
 	wg.Wait()
 }
