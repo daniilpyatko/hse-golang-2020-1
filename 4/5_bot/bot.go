@@ -82,6 +82,7 @@ func main() {
 
 	// получаем все обновления из канала updates
 	for update := range updates {
+		log.Printf("upd: %#v\n", update)
 		url, ok := rss[update.Message.Text]
 		if !ok {
 			bot.Send(tgbotapi.NewMessage(
