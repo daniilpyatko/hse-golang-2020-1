@@ -18,8 +18,9 @@ git subtree push --prefix 4/5_bot heroku master
 */
 
 const (
-	BotToken   = "780686583:AAFNe68VRVIvWW9h10u_3VxG8zoJWbom__A"
+	BotToken   = "-"
 	WebhookURL = "https://hse-go-2020-1.herokuapp.com/"
+	// WebhookURL = "https://76b50061.ngrok.io"
 )
 
 var rss = map[string]string{
