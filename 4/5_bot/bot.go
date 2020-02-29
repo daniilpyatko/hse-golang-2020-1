@@ -11,6 +11,12 @@ import (
 	"gopkg.in/telegram-bot-api.v4"
 )
 
+/*
+находясь в корне репы
+git subtree push --prefix 4/5_bot heroku master
+
+*/
+
 const (
 	BotToken   = "780686583:AAFNe68VRVIvWW9h10u_3VxG8zoJWbom__A"
 	WebhookURL = "https://hse-go-2020-1.herokuapp.com/"
@@ -63,8 +69,14 @@ func main() {
 
 	updates := bot.ListenForWebhook("/")
 
+	http.HandleFunc("/state", func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte("all is working"))
+	})
+
 	port := os.Getenv("PORT")
-	go http.ListenAndServe(":"+port, nil)
+	go func() {
+		log.Fatalln("http err:", http.ListenAndServe(":"+port, nil))
+	}()
 	fmt.Println("start listen :8080")
 
 	// получаем все обновления из канала updates
