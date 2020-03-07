@@ -62,33 +62,21 @@ func NewBotAPIWithClient(token string, client *http.Client) (*BotAPI, error) {
 func (bot *BotAPI) MakeRequest(endpoint string, params url.Values) (APIResponse, error) {
 	method := fmt.Sprintf(APIEndpoint, bot.Token, endpoint)
 
-	// fmt.Println("MakeRequest params DEBUG", endpoint, params)
-
 	resp, err := bot.Client.PostForm(method, params)
 	if err != nil {
 		return APIResponse{}, err
 	}
 	defer resp.Body.Close()
 
-	body, err := ioutil.ReadAll(resp.Body)
-	defer resp.Body.Close() // важный пункт!
-	if err != nil {
-		panic(err)
-	}
-
-	// fmt.Println("MakeRequest resp DEBUG", endpoint, string(body))
-
-	buf := bytes.NewReader(body)
-
 	var apiResp APIResponse
-	bytes, err := bot.decodeAPIResponse(buf, &apiResp)
+	bytes, err := bot.decodeAPIResponse(resp.Body, &apiResp)
 	if err != nil {
 		return apiResp, err
 	}
 
-	// if bot.Debug {
-	log.Printf("DEBUG %s resp: %s\n", endpoint, bytes)
-	// }
+	if bot.Debug {
+		log.Printf("%s resp: %s", endpoint, bytes)
+	}
 
 	if !apiResp.Ok {
 		return apiResp, errors.New(apiResp.Description)
@@ -258,7 +246,6 @@ func (bot *BotAPI) GetMe() (User, error) {
 	var user User
 	json.Unmarshal(resp.Result, &user)
 
-	log.Println("getMe", nil, user)
 	bot.debugLog("getMe", nil, user)
 
 	return user, nil
@@ -520,8 +507,6 @@ func (bot *BotAPI) ListenForWebhook(pattern string) UpdatesChannel {
 
 	http.HandleFunc(pattern, func(w http.ResponseWriter, r *http.Request) {
 		bytes, _ := ioutil.ReadAll(r.Body)
-
-		// fmt.Println(r, string(bytes))
 
 		var update Update
 		json.Unmarshal(bytes, &update)
