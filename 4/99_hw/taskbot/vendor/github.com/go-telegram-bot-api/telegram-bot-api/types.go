@@ -144,6 +144,7 @@ type Message struct {
 	Entities              *[]MessageEntity   `json:"entities"`                // optional
 	Audio                 *Audio             `json:"audio"`                   // optional
 	Document              *Document          `json:"document"`                // optional
+	Animation             *ChatAnimation     `json:"animation"`               // optional
 	Game                  *Game              `json:"game"`                    // optional
 	Photo                 *[]PhotoSize       `json:"photo"`                   // optional
 	Sticker               *Sticker           `json:"sticker"`                 // optional
@@ -167,6 +168,7 @@ type Message struct {
 	PinnedMessage         *Message           `json:"pinned_message"`          // optional
 	Invoice               *Invoice           `json:"invoice"`                 // optional
 	SuccessfulPayment     *SuccessfulPayment `json:"successful_payment"`      // optional
+	PassportData          *PassportData      `json:"passport_data,omitempty"` // optional
 }
 
 // Time converts the message timestamp into a Time.
@@ -232,9 +234,9 @@ func (m *Message) CommandArguments() string {
 	entity := (*m.Entities)[0]
 	if len(m.Text) == entity.Length {
 		return "" // The command makes up the whole message
-	} else {
-		return m.Text[entity.Length+1:]
 	}
+
+	return m.Text[entity.Length+1:]
 }
 
 // MessageEntity contains information about data in a Message.
@@ -289,6 +291,19 @@ type Sticker struct {
 	Height    int        `json:"height"`
 	Thumbnail *PhotoSize `json:"thumb"`     // optional
 	Emoji     string     `json:"emoji"`     // optional
+	FileSize  int        `json:"file_size"` // optional
+	SetName   string     `json:"set_name"`  // optional
+}
+
+// ChatAnimation contains information about an animation.
+type ChatAnimation struct {
+	FileID    string     `json:"file_id"`
+	Width     int        `json:"width"`
+	Height    int        `json:"height"`
+	Duration  int        `json:"duration"`
+	Thumbnail *PhotoSize `json:"thumb"`     // optional
+	FileName  string     `json:"file_name"` // optional
+	MimeType  string     `json:"mime_type"` // optional
 	FileSize  int        `json:"file_size"` // optional
 }
 
@@ -410,7 +425,7 @@ type InlineKeyboardButton struct {
 	SwitchInlineQuery            *string       `json:"switch_inline_query,omitempty"`              // optional
 	SwitchInlineQueryCurrentChat *string       `json:"switch_inline_query_current_chat,omitempty"` // optional
 	CallbackGame                 *CallbackGame `json:"callback_game,omitempty"`                    // optional
-	Pay                          bool          `json:"pay,omitempty"`			       // optional
+	Pay                          bool          `json:"pay,omitempty"`                              // optional
 }
 
 // CallbackQuery is data sent when a keyboard button with callback data
@@ -508,6 +523,27 @@ type WebhookInfo struct {
 // IsSet returns true if a webhook is currently set.
 func (info WebhookInfo) IsSet() bool {
 	return info.URL != ""
+}
+
+// InputMediaPhoto contains a photo for displaying as part of a media group.
+type InputMediaPhoto struct {
+	Type      string `json:"type"`
+	Media     string `json:"media"`
+	Caption   string `json:"caption"`
+	ParseMode string `json:"parse_mode"`
+}
+
+// InputMediaVideo contains a video for displaying as part of a media group.
+type InputMediaVideo struct {
+	Type  string `json:"type"`
+	Media string `json:"media"`
+	// thumb intentionally missing as it is not currently compatible
+	Caption           string `json:"caption"`
+	ParseMode         string `json:"parse_mode"`
+	Width             int    `json:"width"`
+	Height            int    `json:"height"`
+	Duration          int    `json:"duration"`
+	SupportsStreaming bool   `json:"supports_streaming"`
 }
 
 // InlineQuery is a Query from Telegram for an inline request.
@@ -657,7 +693,7 @@ type InlineQueryResultGame struct {
 	Type          string                `json:"type"`
 	ID            string                `json:"id"`
 	GameShortName string                `json:"game_short_name"`
-	ReplyMarkup   *InlineKeyboardMarkup `json:"reply_markup"`
+	ReplyMarkup   *InlineKeyboardMarkup `json:"reply_markup,omitempty"`
 }
 
 // ChosenInlineResult is an inline query result chosen by a User
@@ -770,4 +806,14 @@ type PreCheckoutQuery struct {
 	InvoicePayload   string     `json:"invoice_payload"`
 	ShippingOptionID string     `json:"shipping_option_id,omitempty"`
 	OrderInfo        *OrderInfo `json:"order_info,omitempty"`
+}
+
+// Error is an error containing extra information returned by the Telegram API.
+type Error struct {
+	Message string
+	ResponseParameters
+}
+
+func (e Error) Error() string {
+	return e.Message
 }
