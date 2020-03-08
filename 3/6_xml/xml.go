@@ -8,6 +8,7 @@ import (
 type User struct {
 	ID      int    `xml:"id,attr"`
 	Login   string `xml:"login"`
+	Name    string `xml:"name"`
 	Browser string `xml:"browser"`
 }
 
@@ -60,9 +61,8 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	// fmt.Println("HERE")
-	fmt.Println(users.Version)
+	fmt.Println(users)
 
-	// res, _ := xml.Marshal(users.List[0])
-	// fmt.Println(string(res))
+	res, _ := xml.Marshal(users.List[0])
+	fmt.Println(string(res))
 }

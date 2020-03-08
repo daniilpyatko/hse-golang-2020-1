@@ -2,7 +2,6 @@ package main
 
 import (
 	"encoding/json"
-	"fmt"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -105,7 +104,6 @@ func TestCartCheckout(t *testing.T) {
 		c := &Cart{
 			PaymentApiURL: ts.URL,
 		}
-		fmt.Println(c.PaymentApiURL)
 		result, err := c.Checkout(item.ID)
 
 		if err != nil && !item.IsError {
