@@ -54,7 +54,7 @@
 			<div id="nav">
 				<select id="files">
 				
-				<option value="file0">C:\Users\danii\Desktop\hse-golang-2020-1\3\99_hw\coverage\client.go (93.2%)</option>
+				<option value="file0">C:\Users\danii\Desktop\hse-golang-2020-1\3\99_hw\coverage\client.go (100.0%)</option>
 				
 				<option value="file1">C:\Users\danii\Desktop\hse-golang-2020-1\3\99_hw\coverage\server.go (100.0%)</option>
 				
@@ -166,7 +166,7 @@ func (srv *SearchClient) FindUsers(req SearchRequest) (*SearchResponse, error) <
                 if err, ok := err.(net.Error); ok &amp;&amp; err.Timeout() </span><span class="cov8" title="1">{
                         return nil, fmt.Errorf("timeout for %s", searcherParams.Encode())
                 }</span>
-                <span class="cov0" title="0">return nil, fmt.Errorf("unknown error %s", err)</span>
+                <span class="cov8" title="1">return nil, fmt.Errorf("unknown error %s", err)</span>
         }
         <span class="cov8" title="1">defer resp.Body.Close()
         body, err := ioutil.ReadAll(resp.Body)
@@ -179,7 +179,7 @@ func (srv *SearchClient) FindUsers(req SearchRequest) (*SearchResponse, error) <
         case http.StatusBadRequest:<span class="cov8" title="1">
                 errResp := SearchErrorResponse{}
                 err = json.Unmarshal(body, &amp;errResp)
-                if err != nil </span><span class="cov0" title="0">{
+                if err != nil </span><span class="cov8" title="1">{
                         return nil, fmt.Errorf("cant unpack error json: %s", err)
                 }</span>
                 <span class="cov8" title="1">if errResp.Error == "ErrorBadOrderField" </span><span class="cov8" title="1">{
@@ -190,15 +190,11 @@ func (srv *SearchClient) FindUsers(req SearchRequest) (*SearchResponse, error) <
 
         <span class="cov8" title="1">data := []User{}
         err = json.Unmarshal(body, &amp;data)
-        if err != nil </span><span class="cov0" title="0">{
+        if err != nil </span><span class="cov8" title="1">{
                 return nil, fmt.Errorf("cant unpack result json: %s", err)
         }</span>
 
         <span class="cov8" title="1">result := SearchResponse{}
-
-        fmt.Println("HEERE")
-        fmt.Println(strconv.Itoa(len(data)) + " " + strconv.Itoa(req.Limit))
-
         if len(data) == req.Limit </span><span class="cov8" title="1">{
                 result.NextPage = true
                 result.Users = data[0 : len(data)-1]
@@ -228,6 +224,21 @@ import (
 var Read ReadXmL = ReadXmL{}
 var UserData []User
 var ValidToken = "228"
+var XMLLocation = "dataset.xml"
+var IsXMLRead = false
+
+func redirectHandler(w http.ResponseWriter, r *http.Request) <span class="cov8" title="1">{
+        http.Redirect(w, r, "asdasdaaffg", http.StatusSeeOther)
+}</span>
+
+func badJSONStatusHandler(w http.ResponseWriter, r *http.Request) <span class="cov8" title="1">{
+        w.WriteHeader(http.StatusBadRequest)
+        io.WriteString(w, "NotParsableJSON")
+}</span>
+
+func badJSONHandler(w http.ResponseWriter, r *http.Request) <span class="cov8" title="1">{
+        io.WriteString(w, "NotParsableJSON")
+}</span>
 
 func slowHandler(w http.ResponseWriter, r *http.Request) <span class="cov8" title="1">{
         time.Sleep(2 * time.Second)
@@ -243,7 +254,11 @@ func handler(w http.ResponseWriter, r *http.Request) <span class="cov8" title="1
         req.Query = keys["query"][0]
         req.OrderField = keys["order_field"][0]
         // handling errors
-        if r.Header.Get("AccessToken") != ValidToken </span><span class="cov8" title="1">{
+        if !IsXMLRead </span><span class="cov8" title="1">{
+                w.WriteHeader(http.StatusInternalServerError)
+                return
+        }</span>
+        <span class="cov8" title="1">if r.Header.Get("AccessToken") != ValidToken </span><span class="cov8" title="1">{
                 w.WriteHeader(http.StatusUnauthorized)
                 return
         }</span>
@@ -295,15 +310,7 @@ func handler(w http.ResponseWriter, r *http.Request) <span class="cov8" title="1
                         return i &lt; j
                 }</span>
         })
-        <span class="cov8" title="1">if req.Offset &gt;= len(filteredUsers) </span><span class="cov8" title="1">{
-                w.WriteHeader(http.StatusInternalServerError)
-                curError := SearchErrorResponse{
-                        Error: "",
-                }
-                curErrorBytes, _ := json.Marshal(curError)
-                io.WriteString(w, string(curErrorBytes))
-                return
-        }</span>
+
         <span class="cov8" title="1">result := []User{}
         for i := req.Offset; i &lt; len(filteredUsers) &amp;&amp; i &lt; req.Offset+req.Limit; i++ </span><span class="cov8" title="1">{
                 result = append(result, filteredUsers[i])
@@ -329,8 +336,13 @@ var tmps *httptest.Server
 
 func startServer(f func(http.ResponseWriter, *http.Request)) string <span class="cov8" title="1">{
         // Parsing xml
-        data, _ := ioutil.ReadFile("dataset.xml")
-        xml.Unmarshal(data, &amp;Read)
+        data, err := ioutil.ReadFile(XMLLocation)
+        if err != nil </span><span class="cov8" title="1">{
+                IsXMLRead = false
+        }</span> else<span class="cov8" title="1"> {
+                IsXMLRead = true
+        }</span>
+        <span class="cov8" title="1">xml.Unmarshal(data, &amp;Read)
         for _, cur := range Read.List </span><span class="cov8" title="1">{
                 UserData = append(UserData, User{
                         Id:     cur.Id,

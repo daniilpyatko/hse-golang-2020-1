@@ -16,6 +16,21 @@ import (
 var Read ReadXmL = ReadXmL{}
 var UserData []User
 var ValidToken = "228"
+var XMLLocation = "dataset.xml"
+var IsXMLRead = false
+
+func redirectHandler(w http.ResponseWriter, r *http.Request) {
+	http.Redirect(w, r, "asdasdaaffg", http.StatusSeeOther)
+}
+
+func badJSONStatusHandler(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusBadRequest)
+	io.WriteString(w, "NotParsableJSON")
+}
+
+func badJSONHandler(w http.ResponseWriter, r *http.Request) {
+	io.WriteString(w, "NotParsableJSON")
+}
 
 func slowHandler(w http.ResponseWriter, r *http.Request) {
 	time.Sleep(2 * time.Second)
@@ -31,6 +46,10 @@ func handler(w http.ResponseWriter, r *http.Request) {
 	req.Query = keys["query"][0]
 	req.OrderField = keys["order_field"][0]
 	// handling errors
+	if !IsXMLRead {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
 	if r.Header.Get("AccessToken") != ValidToken {
 		w.WriteHeader(http.StatusUnauthorized)
 		return
@@ -109,7 +128,12 @@ var tmps *httptest.Server
 
 func startServer(f func(http.ResponseWriter, *http.Request)) string {
 	// Parsing xml
-	data, _ := ioutil.ReadFile("dataset.xml")
+	data, err := ioutil.ReadFile(XMLLocation)
+	if err != nil {
+		IsXMLRead = false
+	} else {
+		IsXMLRead = true
+	}
 	xml.Unmarshal(data, &Read)
 	for _, cur := range Read.List {
 		UserData = append(UserData, User{

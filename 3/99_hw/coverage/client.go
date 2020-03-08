@@ -123,10 +123,6 @@ func (srv *SearchClient) FindUsers(req SearchRequest) (*SearchResponse, error) {
 	}
 
 	result := SearchResponse{}
-
-	fmt.Println("HEERE")
-	fmt.Println(strconv.Itoa(len(data)) + " " + strconv.Itoa(req.Limit))
-
 	if len(data) == req.Limit {
 		result.NextPage = true
 		result.Users = data[0 : len(data)-1]

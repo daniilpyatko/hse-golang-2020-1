@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"testing"
 )
 
@@ -20,15 +19,74 @@ func TestToken(*testing.T) {
 			OrderBy:    0,
 		},
 	}
-	for i, curTest := range Tests {
-		res, err := curClient.FindUsers(curTest)
-		if err != nil {
-			fmt.Println(err)
-		} else {
-			fmt.Println(i, len(res.Users))
-		}
+	for _, curTest := range Tests {
+		curClient.FindUsers(curTest)
 	}
 	closeServer()
+}
+
+func TestUnknownError(*testing.T) {
+	Address := startServer(redirectHandler)
+	var curClient = SearchClient{
+		AccessToken: ValidToken,
+		URL:         Address,
+	}
+	Tests := []SearchRequest{
+		SearchRequest{
+			Limit:      5,
+			Offset:     0,
+			Query:      "accccc",
+			OrderField: "Id",
+			OrderBy:    0,
+		},
+	}
+	for _, curTest := range Tests {
+		curClient.FindUsers(curTest)
+	}
+	closeServer()
+}
+
+func TestBadStatusJSONError(*testing.T) {
+	Address := startServer(badJSONStatusHandler)
+	var curClient = SearchClient{
+		AccessToken: ValidToken,
+		URL:         Address,
+	}
+	Tests := []SearchRequest{
+		SearchRequest{
+			Limit:      5,
+			Offset:     0,
+			Query:      "accccc",
+			OrderField: "Id",
+			OrderBy:    0,
+		},
+	}
+	for _, curTest := range Tests {
+		curClient.FindUsers(curTest)
+	}
+	closeServer()
+}
+func TestXMLLocation(*testing.T) {
+	XMLLocation = "NotValidXMLLocation"
+	Address := startServer(handler)
+	var curClient = SearchClient{
+		AccessToken: ValidToken,
+		URL:         Address,
+	}
+	Tests := []SearchRequest{
+		SearchRequest{
+			Limit:      5,
+			Offset:     0,
+			Query:      "accccc",
+			OrderField: "Id",
+			OrderBy:    0,
+		},
+	}
+	for _, curTest := range Tests {
+		curClient.FindUsers(curTest)
+	}
+	closeServer()
+	XMLLocation = "dataset.xml"
 }
 
 func TestSlowHandler(*testing.T) {
@@ -46,13 +104,29 @@ func TestSlowHandler(*testing.T) {
 			OrderBy:    0,
 		},
 	}
-	for i, curTest := range Tests {
-		res, err := curClient.FindUsers(curTest)
-		if err != nil {
-			fmt.Println(err)
-		} else {
-			fmt.Println(i, len(res.Users))
-		}
+	for _, curTest := range Tests {
+		curClient.FindUsers(curTest)
+	}
+	closeServer()
+}
+
+func TestBadJSONHandler(*testing.T) {
+	Address := startServer(badJSONHandler)
+	var curClient = SearchClient{
+		AccessToken: ValidToken,
+		URL:         Address,
+	}
+	Tests := []SearchRequest{
+		SearchRequest{
+			Limit:      5,
+			Offset:     0,
+			Query:      "",
+			OrderField: "Id",
+			OrderBy:    0,
+		},
+	}
+	for _, curTest := range Tests {
+		curClient.FindUsers(curTest)
 	}
 	closeServer()
 }
@@ -143,13 +217,8 @@ func TestServerSorting(*testing.T) {
 			OrderBy:    -1,
 		},
 	}
-	for i, curTest := range Tests {
-		res, err := curClient.FindUsers(curTest)
-		if err != nil {
-			fmt.Println(err)
-		} else {
-			fmt.Println(i, len(res.Users))
-		}
+	for _, curTest := range Tests {
+		curClient.FindUsers(curTest)
 	}
 	closeServer()
 }
@@ -211,14 +280,8 @@ func TestGeneral(*testing.T) {
 			OrderBy:    1,
 		},
 	}
-	for i, curTest := range Tests {
-		res, err := curClient.FindUsers(curTest)
-		fmt.Println(i)
-		if err != nil {
-			fmt.Println(err)
-		} else {
-			fmt.Println(len(res.Users))
-		}
+	for _, curTest := range Tests {
+		curClient.FindUsers(curTest)
 	}
 	closeServer()
 }
