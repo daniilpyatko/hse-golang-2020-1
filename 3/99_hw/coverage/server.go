@@ -91,7 +91,7 @@ func handler(w http.ResponseWriter, r *http.Request) {
 			}
 		} else if req.OrderBy == 1 {
 			// Ascending
-			if req.OrderField == "Name" {
+			if req.OrderField == "Name" || req.OrderField == "" {
 				return filteredUsers[i].Name < filteredUsers[j].Name
 			} else if req.OrderField == "Id" {
 				return filteredUsers[i].Id < filteredUsers[j].Id
