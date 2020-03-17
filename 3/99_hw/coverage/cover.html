@@ -252,8 +252,11 @@ func handler(w http.ResponseWriter, r *http.Request) <span class="cov8" title="1
                 w.WriteHeader(http.StatusInternalServerError)
                 return
         }</span>
-        <span class="cov8" title="1">xml.Unmarshal(data, &amp;Read)
-        for _, cur := range Read.List </span><span class="cov8" title="1">{
+        <span class="cov8" title="1">err = xml.Unmarshal(data, &amp;Read)
+        if err != nil </span><span class="cov8" title="1">{
+                w.WriteHeader(http.StatusInternalServerError)
+        }</span>
+        <span class="cov8" title="1">for _, cur := range Read.List </span><span class="cov8" title="1">{
                 UserData = append(UserData, User{
                         Id:     cur.Id,
                         Name:   cur.FirstName + cur.LastName,

@@ -43,7 +43,10 @@ func handler(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
-	xml.Unmarshal(data, &Read)
+	err = xml.Unmarshal(data, &Read)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+	}
 	for _, cur := range Read.List {
 		UserData = append(UserData, User{
 			Id:     cur.Id,

@@ -88,6 +88,28 @@ func TestXMLLocation(*testing.T) {
 	closeServer()
 	XMLLocation = "dataset.xml"
 }
+func TestNonValidXML(*testing.T) {
+	XMLLocation = "NotValidDataset.xml"
+	Address := startServer(handler)
+	var curClient = SearchClient{
+		AccessToken: ValidToken,
+		URL:         Address,
+	}
+	Tests := []SearchRequest{
+		SearchRequest{
+			Limit:      5,
+			Offset:     0,
+			Query:      "accccc",
+			OrderField: "Id",
+			OrderBy:    0,
+		},
+	}
+	for _, curTest := range Tests {
+		curClient.FindUsers(curTest)
+	}
+	closeServer()
+	XMLLocation = "dataset.xml"
+}
 
 func TestSlowHandler(*testing.T) {
 	Address := startServer(slowHandler)
