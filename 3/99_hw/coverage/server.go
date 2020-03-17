@@ -13,11 +13,8 @@ import (
 	"time"
 )
 
-var Read ReadXmL = ReadXmL{}
-var UserData []User
 var ValidToken = "228"
 var XMLLocation = "dataset.xml"
-var IsXMLRead = false
 
 func redirectHandler(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "asdasdaaffg", http.StatusSeeOther)
@@ -38,18 +35,32 @@ func slowHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func handler(w http.ResponseWriter, r *http.Request) {
-	keys := r.URL.Query()
-	req := SearchRequest{}
-	req.Limit, _ = strconv.Atoi(keys["limit"][0])
-	req.Offset, _ = strconv.Atoi(keys["offset"][0])
-	req.OrderBy, _ = strconv.Atoi(keys["order_by"][0])
-	req.Query = keys["query"][0]
-	req.OrderField = keys["order_field"][0]
-	// handling errors
-	if !IsXMLRead {
+	// Parsing xml
+	var Read ReadXmL = ReadXmL{}
+	var UserData []User
+	data, err := ioutil.ReadFile(XMLLocation)
+	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
+	xml.Unmarshal(data, &Read)
+	for _, cur := range Read.List {
+		UserData = append(UserData, User{
+			Id:     cur.Id,
+			Name:   cur.FirstName + cur.LastName,
+			Age:    cur.Age,
+			Gender: cur.Gender,
+			About:  cur.About,
+		})
+	}
+	keys := r.URL.Query()
+	req := SearchRequest{}
+	req.Limit, _ = strconv.Atoi(keys.Get("limit"))
+	req.Offset, _ = strconv.Atoi(keys.Get("offset"))
+	req.OrderBy, _ = strconv.Atoi(keys.Get("order_by"))
+	req.Query = keys.Get("query")
+	req.OrderField = keys.Get("order_field")
+	// handling errors
 	if r.Header.Get("AccessToken") != ValidToken {
 		w.WriteHeader(http.StatusUnauthorized)
 		return
@@ -127,24 +138,6 @@ type ReadXmL struct {
 var tmps *httptest.Server
 
 func startServer(f func(http.ResponseWriter, *http.Request)) string {
-	// Parsing xml
-	data, err := ioutil.ReadFile(XMLLocation)
-	if err != nil {
-		IsXMLRead = false
-	} else {
-		IsXMLRead = true
-	}
-	xml.Unmarshal(data, &Read)
-	for _, cur := range Read.List {
-		UserData = append(UserData, User{
-			Id:     cur.Id,
-			Name:   cur.FirstName + cur.LastName,
-			Age:    cur.Age,
-			Gender: cur.Gender,
-			About:  cur.About,
-		})
-	}
-
 	tmps = httptest.NewServer(http.HandlerFunc(f))
 	return tmps.URL
 }

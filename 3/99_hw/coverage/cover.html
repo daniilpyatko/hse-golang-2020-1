@@ -222,11 +222,8 @@ import (
         "time"
 )
 
-var Read ReadXmL = ReadXmL{}
-var UserData []User
 var ValidToken = "228"
 var XMLLocation = "dataset.xml"
-var IsXMLRead = false
 
 func redirectHandler(w http.ResponseWriter, r *http.Request) <span class="cov8" title="1">{
         http.Redirect(w, r, "asdasdaaffg", http.StatusSeeOther)
@@ -247,19 +244,33 @@ func slowHandler(w http.ResponseWriter, r *http.Request) <span class="cov8" titl
 }</span>
 
 func handler(w http.ResponseWriter, r *http.Request) <span class="cov8" title="1">{
-        keys := r.URL.Query()
-        req := SearchRequest{}
-        req.Limit, _ = strconv.Atoi(keys["limit"][0])
-        req.Offset, _ = strconv.Atoi(keys["offset"][0])
-        req.OrderBy, _ = strconv.Atoi(keys["order_by"][0])
-        req.Query = keys["query"][0]
-        req.OrderField = keys["order_field"][0]
-        // handling errors
-        if !IsXMLRead </span><span class="cov8" title="1">{
+        // Parsing xml
+        var Read ReadXmL = ReadXmL{}
+        var UserData []User
+        data, err := ioutil.ReadFile(XMLLocation)
+        if err != nil </span><span class="cov8" title="1">{
                 w.WriteHeader(http.StatusInternalServerError)
                 return
         }</span>
-        <span class="cov8" title="1">if r.Header.Get("AccessToken") != ValidToken </span><span class="cov8" title="1">{
+        <span class="cov8" title="1">xml.Unmarshal(data, &amp;Read)
+        for _, cur := range Read.List </span><span class="cov8" title="1">{
+                UserData = append(UserData, User{
+                        Id:     cur.Id,
+                        Name:   cur.FirstName + cur.LastName,
+                        Age:    cur.Age,
+                        Gender: cur.Gender,
+                        About:  cur.About,
+                })
+        }</span>
+        <span class="cov8" title="1">keys := r.URL.Query()
+        req := SearchRequest{}
+        req.Limit, _ = strconv.Atoi(keys.Get("limit"))
+        req.Offset, _ = strconv.Atoi(keys.Get("offset"))
+        req.OrderBy, _ = strconv.Atoi(keys.Get("order_by"))
+        req.Query = keys.Get("query")
+        req.OrderField = keys.Get("order_field")
+        // handling errors
+        if r.Header.Get("AccessToken") != ValidToken </span><span class="cov8" title="1">{
                 w.WriteHeader(http.StatusUnauthorized)
                 return
         }</span>
@@ -300,7 +311,7 @@ func handler(w http.ResponseWriter, r *http.Request) <span class="cov8" title="1
                         }</span>
                 } else<span class="cov8" title="1"> if req.OrderBy == 1 </span><span class="cov8" title="1">{
                         // Ascending
-                        if req.OrderField == "Name" </span><span class="cov8" title="1">{
+                        if req.OrderField == "Name" || req.OrderField == "" </span><span class="cov8" title="1">{
                                 return filteredUsers[i].Name &lt; filteredUsers[j].Name
                         }</span> else<span class="cov8" title="1"> if req.OrderField == "Id" </span><span class="cov8" title="1">{
                                 return filteredUsers[i].Id &lt; filteredUsers[j].Id
@@ -336,27 +347,9 @@ type ReadXmL struct {
 var tmps *httptest.Server
 
 func startServer(f func(http.ResponseWriter, *http.Request)) string <span class="cov8" title="1">{
-        // Parsing xml
-        data, err := ioutil.ReadFile(XMLLocation)
-        if err != nil </span><span class="cov8" title="1">{
-                IsXMLRead = false
-        }</span> else<span class="cov8" title="1"> {
-                IsXMLRead = true
-        }</span>
-        <span class="cov8" title="1">xml.Unmarshal(data, &amp;Read)
-        for _, cur := range Read.List </span><span class="cov8" title="1">{
-                UserData = append(UserData, User{
-                        Id:     cur.Id,
-                        Name:   cur.FirstName + cur.LastName,
-                        Age:    cur.Age,
-                        Gender: cur.Gender,
-                        About:  cur.About,
-                })
-        }</span>
-
-        <span class="cov8" title="1">tmps = httptest.NewServer(http.HandlerFunc(f))
-        return tmps.URL</span>
-}
+        tmps = httptest.NewServer(http.HandlerFunc(f))
+        return tmps.URL
+}</span>
 
 func closeServer() <span class="cov8" title="1">{
         tmps.Close()
