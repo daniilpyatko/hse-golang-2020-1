@@ -63,7 +63,7 @@ func (repo *ItemRepository) Update(elem *Item) (int64, error) {
 			"WHERE id = ?",
 		elem.Title,
 		elem.Description,
-		"rvasily",
+		"dmitry",
 		elem.ID,
 	)
 	if err != nil {

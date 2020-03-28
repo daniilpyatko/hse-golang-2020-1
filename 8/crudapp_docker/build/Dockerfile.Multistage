@@ -1,0 +1,26 @@
+# шаг 0 - скачка зависимостей
+# https://github.com/proxeter/go-service-template/blob/master/deployments/docker/Dockerfile
+FROM golang:1.13 AS dependencies
+WORKDIR /go/src/crudapp
+COPY go.mod .
+COPY go.sum .
+RUN go mod download
+
+# 1 шаг - сборка пакета
+FROM dependencies AS build
+# если у вас завендорены зависимости
+# FROM golang:1.13 AS build
+COPY . /go/src/crudapp
+WORKDIR /go/src/crudapp
+RUN make build
+
+# 2 шаг - создание контейнера для запуска
+FROM debian:buster-slim
+WORKDIR /app
+COPY --from=build /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
+COPY --from=build /go/src/crudapp/bin/crudapp /app/
+COPY --from=build /go/src/crudapp/templates /app/templates
+COPY --from=build /go/src/crudapp/scripts/wait-for-it.sh /app/
+RUN chmod +x /app/*
+EXPOSE 8080/tcp
+CMD /app/crudapp

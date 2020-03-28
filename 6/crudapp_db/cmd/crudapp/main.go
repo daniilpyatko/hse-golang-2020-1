@@ -21,7 +21,7 @@ func main() {
 	// основные настройки к базе
 	dsn := "root:love@tcp(localhost:3306)/golang?"
 	// указываем кодировку
-	dsn += "&charset=utf8"
+	dsn += "charset=utf8"
 	// отказываемся от prapared statements
 	// параметры подставляются сразу
 	dsn += "&interpolateParams=true"

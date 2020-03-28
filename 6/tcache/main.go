@@ -2,8 +2,8 @@ package main
 
 import (
 	"fmt"
-
 	"github.com/bradfitz/gomemcache/memcache"
+	"sync"
 )
 
 /*
@@ -32,7 +32,7 @@ func main() {
 	fmt.Println("\nTGet call #1")
 	posts := RSS{}
 	err := tc.TGet(mkey, 30, &posts, rebuild)
-	fmt.Println("#1", len(posts.Items), "err:", err)
+	fmt.Println("#1", posts.Items, "err:", err)
 
 	fmt.Println("\nTGet call #2")
 	posts = RSS{}
@@ -42,16 +42,22 @@ func main() {
 	fmt.Println("\ninc tag habrTag")
 	tc.Increment("habrTag", 1)
 
-	go func() {
+	wg := &sync.WaitGroup{}
+
+	wg.Add(1)
+	go func(wg *sync.WaitGroup) {
+		defer wg.Done()
 		// time.Sleep(time.Millisecond)
 		fmt.Println("\nTGet call #async")
 		posts = RSS{}
 		err = tc.TGet(mkey, 30, &posts, rebuild)
 		fmt.Println("#async", len(posts.Items), "err:", err)
-	}()
+	}(wg)
 
 	fmt.Println("\nTGet call #3")
 	posts = RSS{}
 	err = tc.TGet(mkey, 30, &posts, rebuild)
 	fmt.Println("#3", len(posts.Items), "err:", err)
+
+	wg.Wait()
 }
