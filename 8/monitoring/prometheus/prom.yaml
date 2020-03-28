@@ -26,5 +26,5 @@ scrape_configs:
     # metrics_path defaults to '/metrics'
     # scheme defaults to 'http'.
 
-    static_configs:
+  static_configs:
     - targets: ['localhost:9090', 'localhost:8080']
