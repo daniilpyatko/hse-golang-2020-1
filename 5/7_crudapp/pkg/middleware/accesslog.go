@@ -10,14 +10,15 @@ import (
 
 func AccessLog(logger *zap.SugaredLogger, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		fmt.Println("access log middleware")
 		start := time.Now()
 		next.ServeHTTP(w, r)
-		logger.Infow("New request",
-			"method", r.Method,
-			"remote_addr", r.RemoteAddr,
-			"url", r.URL.Path,
-			"time", time.Since(start),
-		)
+		// logger.Infow("New request",
+		// 	"method", r.Method,
+		// 	"remote_addr", r.RemoteAddr,
+		// 	"url", r.URL.Path,
+		// 	"time", time.Since(start),
+		// )
+		logger.Debugf("Accesslog middleware %v", r.Method)
+		fmt.Println("HEEERE")
 	})
 }
