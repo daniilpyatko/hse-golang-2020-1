@@ -6,8 +6,8 @@ import (
 )
 
 type Comment struct {
-	Created time.Time  `json:"created"`
-	Author  *user.User `json:"author"`
-	Body    string     `json:"body"`
-	Id      string     `json:"id"`
+	Created time.Time  `json:"created" bson:"created"`
+	Author  *user.User `json:"author" bson:"author"`
+	Body    string     `json:"body" bson:"body"`
+	Id      string     `json:"id" bson:"id"`
 }

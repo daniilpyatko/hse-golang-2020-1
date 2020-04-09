@@ -1,24 +1,36 @@
 package handlers
 
 import (
-	"crypto/rand"
-	"encoding/base64"
 	"encoding/json"
 	"io/ioutil"
 	"net/http"
 	"redditclone/pkg/comment"
 	"redditclone/pkg/post"
 	"redditclone/pkg/user"
-	"time"
 
 	"github.com/gorilla/mux"
-	"go.uber.org/zap"
 )
 
+// mockgen -source=post.go -destination=post_mock.go -package=handlers PostRepo
+
+type PostRepo interface {
+	GetAll() ([]*post.Post, error)
+	GetByCategory(category string) ([]*post.Post, error)
+	GetById(id string) (*post.Post, error)
+	GetByUsername(username string) ([]*post.Post, error)
+	AddPost(post *post.Post)
+	AddNewPost(user *user.User, newPost *post.Post)
+	AddCommentToPost(postId string, curUser *user.User, curComment comment.Comment)
+	PostUpvote(postId, curUserId string)
+	PostDownvote(postId, curUserId string)
+	PostUnvote(postId, curUserId string)
+	CommentDelete(postId, commentId, curUserId string)
+	PostDelete(postId string)
+}
+
 type PostHandler struct {
-	PostRepo *post.PostRepo
-	UserRepo *user.UserRepo
-	Logger   *zap.SugaredLogger
+	PostRepo PostRepo
+	UserRepo UserRepo
 }
 
 func (u *PostHandler) AllPosts(w http.ResponseWriter, r *http.Request) {
@@ -38,6 +50,8 @@ func (u *PostHandler) PostsById(w http.ResponseWriter, r *http.Request) {
 	Id := mux.Vars(r)["post_id"]
 	cur, _ := u.PostRepo.GetById(Id)
 	cur.Views += 1
+	u.PostRepo.PostDelete(Id)
+	u.PostRepo.AddPost(cur)
 	res, _ := json.Marshal(cur)
 	w.Write(res)
 }
@@ -54,25 +68,10 @@ func (u *PostHandler) NewPost(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		return
 	}
-	var newPost post.Post
+	newPost := post.Post{}
 	read, _ := ioutil.ReadAll(r.Body)
 	json.Unmarshal(read, &newPost)
-	newPost.Author = curUser
-	newPost.Votes = []post.Vote{
-		post.Vote{
-			UserId: newPost.Author.Id,
-			Vote:   1,
-		},
-	}
-	rnd := make([]byte, 16)
-	rand.Read(rnd)
-	newPost.Id = base64.URLEncoding.EncodeToString(rnd)
-	newPost.Score = 1
-	newPost.Views = 0
-	newPost.Created = time.Now()
-	newPost.UpvotePercentage = 100
-	newPost.Comments = make([]comment.Comment, 0, 10)
-	u.PostRepo.AddPost(&newPost)
+	u.PostRepo.AddNewPost(curUser, &newPost)
 	res, _ := json.Marshal(newPost)
 	w.Write(res)
 }
@@ -83,15 +82,10 @@ func (u *PostHandler) AddComment(w http.ResponseWriter, r *http.Request) {
 	read, _ := ioutil.ReadAll(r.Body)
 	json.Unmarshal(read, &unm)
 	curUser, _ := u.UserRepo.GetUserById(r.Context().Value("Id").(string))
-	rnd := make([]byte, 16)
-	rand.Read(rnd)
 	newComment := comment.Comment{
-		Created: time.Now(),
-		Author:  curUser,
-		Body:    unm["comment"],
-		Id:      base64.URLEncoding.EncodeToString(rnd),
+		Body: unm["comment"],
 	}
-	u.PostRepo.AddCommentToPost(postId, newComment)
+	u.PostRepo.AddCommentToPost(postId, curUser, newComment)
 	resPost, _ := u.PostRepo.GetById(postId)
 	res, _ := json.Marshal(resPost)
 	w.Write(res)

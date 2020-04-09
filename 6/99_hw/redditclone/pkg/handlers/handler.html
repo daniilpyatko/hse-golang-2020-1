@@ -1,0 +1,742 @@
+
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+		<style>
+			body {
+				background: black;
+				color: rgb(80, 80, 80);
+			}
+			body, pre, #legend span {
+				font-family: Menlo, monospace;
+				font-weight: bold;
+			}
+			#topbar {
+				background: black;
+				position: fixed;
+				top: 0; left: 0; right: 0;
+				height: 42px;
+				border-bottom: 1px solid rgb(80, 80, 80);
+			}
+			#content {
+				margin-top: 50px;
+			}
+			#nav, #legend {
+				float: left;
+				margin-left: 10px;
+			}
+			#legend {
+				margin-top: 12px;
+			}
+			#nav {
+				margin-top: 10px;
+			}
+			#legend span {
+				margin: 0 5px;
+			}
+			.cov0 { color: rgb(192, 0, 0) }
+.cov1 { color: rgb(128, 128, 128) }
+.cov2 { color: rgb(116, 140, 131) }
+.cov3 { color: rgb(104, 152, 134) }
+.cov4 { color: rgb(92, 164, 137) }
+.cov5 { color: rgb(80, 176, 140) }
+.cov6 { color: rgb(68, 188, 143) }
+.cov7 { color: rgb(56, 200, 146) }
+.cov8 { color: rgb(44, 212, 149) }
+.cov9 { color: rgb(32, 224, 152) }
+.cov10 { color: rgb(20, 236, 155) }
+
+		</style>
+	</head>
+	<body>
+		<div id="topbar">
+			<div id="nav">
+				<select id="files">
+				
+				<option value="file0">redditclone/pkg/handlers/post.go (100.0%)</option>
+				
+				<option value="file1">redditclone/pkg/handlers/post_mock.go (100.0%)</option>
+				
+				<option value="file2">redditclone/pkg/handlers/session_mock.go (44.0%)</option>
+				
+				<option value="file3">redditclone/pkg/handlers/user.go (100.0%)</option>
+				
+				<option value="file4">redditclone/pkg/handlers/user_mock.go (100.0%)</option>
+				
+				</select>
+			</div>
+			<div id="legend">
+				<span>not tracked</span>
+			
+				<span class="cov0">not covered</span>
+				<span class="cov8">covered</span>
+			
+			</div>
+		</div>
+		<div id="content">
+		
+		<pre class="file" id="file0" style="display: none">package handlers
+
+import (
+        "encoding/json"
+        "io/ioutil"
+        "net/http"
+        "redditclone/pkg/comment"
+        "redditclone/pkg/post"
+        "redditclone/pkg/user"
+
+        "github.com/gorilla/mux"
+)
+
+// mockgen -source=post.go -destination=post_mock.go -package=handlers PostRepo
+
+type PostRepo interface {
+        GetAll() ([]*post.Post, error)
+        GetByCategory(category string) ([]*post.Post, error)
+        GetById(id string) (*post.Post, error)
+        GetByUsername(username string) ([]*post.Post, error)
+        AddPost(post *post.Post)
+        AddNewPost(user *user.User, newPost *post.Post)
+        AddCommentToPost(postId string, curUser *user.User, curComment comment.Comment)
+        PostUpvote(postId, curUserId string)
+        PostDownvote(postId, curUserId string)
+        PostUnvote(postId, curUserId string)
+        CommentDelete(postId, commentId, curUserId string)
+        PostDelete(postId string)
+}
+
+type PostHandler struct {
+        PostRepo PostRepo
+        UserRepo UserRepo
+}
+
+func (u *PostHandler) AllPosts(w http.ResponseWriter, r *http.Request) <span class="cov8" title="1">{
+        cur, _ := u.PostRepo.GetAll()
+        res, _ := json.Marshal(cur)
+        w.Write(res)
+}</span>
+
+func (u *PostHandler) PostsByCategory(w http.ResponseWriter, r *http.Request) <span class="cov8" title="1">{
+        category := mux.Vars(r)["category"]
+        cur, _ := u.PostRepo.GetByCategory(category)
+        res, _ := json.Marshal(cur)
+        w.Write(res)
+}</span>
+
+func (u *PostHandler) PostsById(w http.ResponseWriter, r *http.Request) <span class="cov8" title="1">{
+        Id := mux.Vars(r)["post_id"]
+        cur, _ := u.PostRepo.GetById(Id)
+        cur.Views += 1
+        u.PostRepo.PostDelete(Id)
+        u.PostRepo.AddPost(cur)
+        res, _ := json.Marshal(cur)
+        w.Write(res)
+}</span>
+
+func (u *PostHandler) PostsByUsername(w http.ResponseWriter, r *http.Request) <span class="cov8" title="1">{
+        Username := mux.Vars(r)["username"]
+        cur, _ := u.PostRepo.GetByUsername(Username)
+        res, _ := json.Marshal(cur)
+        w.Write(res)
+}</span>
+
+func (u *PostHandler) NewPost(w http.ResponseWriter, r *http.Request) <span class="cov8" title="1">{
+        curUser, err := u.UserRepo.GetUserById(r.Context().Value("Id").(string))
+        if err != nil </span><span class="cov8" title="1">{
+                return
+        }</span>
+        <span class="cov8" title="1">newPost := post.Post{}
+        read, _ := ioutil.ReadAll(r.Body)
+        json.Unmarshal(read, &amp;newPost)
+        u.PostRepo.AddNewPost(curUser, &amp;newPost)
+        res, _ := json.Marshal(newPost)
+        w.Write(res)</span>
+}
+
+func (u *PostHandler) AddComment(w http.ResponseWriter, r *http.Request) <span class="cov8" title="1">{
+        postId := mux.Vars(r)["post_id"]
+        var unm map[string]string
+        read, _ := ioutil.ReadAll(r.Body)
+        json.Unmarshal(read, &amp;unm)
+        curUser, _ := u.UserRepo.GetUserById(r.Context().Value("Id").(string))
+        newComment := comment.Comment{
+                Body: unm["comment"],
+        }
+        u.PostRepo.AddCommentToPost(postId, curUser, newComment)
+        resPost, _ := u.PostRepo.GetById(postId)
+        res, _ := json.Marshal(resPost)
+        w.Write(res)
+}</span>
+
+func (u *PostHandler) PostUpvote(w http.ResponseWriter, r *http.Request) <span class="cov8" title="1">{
+        postId := mux.Vars(r)["post_id"]
+        curUserId, _ := r.Context().Value("Id").(string)
+        u.PostRepo.PostUpvote(postId, curUserId)
+        Post, _ := u.PostRepo.GetById(postId)
+        res, _ := json.Marshal(Post)
+        w.Write(res)
+}</span>
+
+func (u *PostHandler) PostDownvote(w http.ResponseWriter, r *http.Request) <span class="cov8" title="1">{
+        postId := mux.Vars(r)["post_id"]
+        curUserId, _ := r.Context().Value("Id").(string)
+        u.PostRepo.PostDownvote(postId, curUserId)
+        Post, _ := u.PostRepo.GetById(postId)
+        res, _ := json.Marshal(Post)
+        w.Write(res)
+}</span>
+
+func (u *PostHandler) PostUnvote(w http.ResponseWriter, r *http.Request) <span class="cov8" title="1">{
+        postId := mux.Vars(r)["post_id"]
+        curUserId, _ := r.Context().Value("Id").(string)
+        u.PostRepo.PostUnvote(postId, curUserId)
+        Post, _ := u.PostRepo.GetById(postId)
+        res, _ := json.Marshal(Post)
+        w.Write(res)
+}</span>
+
+func (u *PostHandler) CommentDelete(w http.ResponseWriter, r *http.Request) <span class="cov8" title="1">{
+        postId := mux.Vars(r)["post_id"]
+        commentId := mux.Vars(r)["comment_id"]
+        curUserId, _ := r.Context().Value("Id").(string)
+        u.PostRepo.CommentDelete(postId, commentId, curUserId)
+        Post, _ := u.PostRepo.GetById(postId)
+        res, _ := json.Marshal(Post)
+        w.Write(res)
+}</span>
+
+func (u *PostHandler) PostDelete(w http.ResponseWriter, r *http.Request) <span class="cov8" title="1">{
+        postId := mux.Vars(r)["post_id"]
+        curUserId, _ := r.Context().Value("Id").(string)
+        Post, _ := u.PostRepo.GetById(postId)
+        if Post.Author.Id == curUserId </span><span class="cov8" title="1">{
+                u.PostRepo.PostDelete(postId)
+                message := map[string]string{
+                        "message": "success",
+                }
+                jsonmessage, _ := json.Marshal(message)
+                w.Write(jsonmessage)
+        }</span> else<span class="cov8" title="1"> {
+                w.WriteHeader(http.StatusBadRequest)
+                return
+        }</span>
+}
+</pre>
+		
+		<pre class="file" id="file1" style="display: none">// Code generated by MockGen. DO NOT EDIT.
+// Source: post.go
+
+// Package handlers is a generated GoMock package.
+package handlers
+
+import (
+        gomock "github.com/golang/mock/gomock"
+        comment "redditclone/pkg/comment"
+        post "redditclone/pkg/post"
+        user "redditclone/pkg/user"
+        reflect "reflect"
+)
+
+// MockPostRepo is a mock of PostRepo interface
+type MockPostRepo struct {
+        ctrl     *gomock.Controller
+        recorder *MockPostRepoMockRecorder
+}
+
+// MockPostRepoMockRecorder is the mock recorder for MockPostRepo
+type MockPostRepoMockRecorder struct {
+        mock *MockPostRepo
+}
+
+// NewMockPostRepo creates a new mock instance
+func NewMockPostRepo(ctrl *gomock.Controller) *MockPostRepo <span class="cov8" title="1">{
+        mock := &amp;MockPostRepo{ctrl: ctrl}
+        mock.recorder = &amp;MockPostRepoMockRecorder{mock}
+        return mock
+}</span>
+
+// EXPECT returns an object that allows the caller to indicate expected use
+func (m *MockPostRepo) EXPECT() *MockPostRepoMockRecorder <span class="cov8" title="1">{
+        return m.recorder
+}</span>
+
+// GetAll mocks base method
+func (m *MockPostRepo) GetAll() ([]*post.Post, error) <span class="cov8" title="1">{
+        m.ctrl.T.Helper()
+        ret := m.ctrl.Call(m, "GetAll")
+        ret0, _ := ret[0].([]*post.Post)
+        ret1, _ := ret[1].(error)
+        return ret0, ret1
+}</span>
+
+// GetAll indicates an expected call of GetAll
+func (mr *MockPostRepoMockRecorder) GetAll() *gomock.Call <span class="cov8" title="1">{
+        mr.mock.ctrl.T.Helper()
+        return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAll", reflect.TypeOf((*MockPostRepo)(nil).GetAll))
+}</span>
+
+// GetByCategory mocks base method
+func (m *MockPostRepo) GetByCategory(category string) ([]*post.Post, error) <span class="cov8" title="1">{
+        m.ctrl.T.Helper()
+        ret := m.ctrl.Call(m, "GetByCategory", category)
+        ret0, _ := ret[0].([]*post.Post)
+        ret1, _ := ret[1].(error)
+        return ret0, ret1
+}</span>
+
+// GetByCategory indicates an expected call of GetByCategory
+func (mr *MockPostRepoMockRecorder) GetByCategory(category interface{}) *gomock.Call <span class="cov8" title="1">{
+        mr.mock.ctrl.T.Helper()
+        return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetByCategory", reflect.TypeOf((*MockPostRepo)(nil).GetByCategory), category)
+}</span>
+
+// GetById mocks base method
+func (m *MockPostRepo) GetById(id string) (*post.Post, error) <span class="cov8" title="1">{
+        m.ctrl.T.Helper()
+        ret := m.ctrl.Call(m, "GetById", id)
+        ret0, _ := ret[0].(*post.Post)
+        ret1, _ := ret[1].(error)
+        return ret0, ret1
+}</span>
+
+// GetById indicates an expected call of GetById
+func (mr *MockPostRepoMockRecorder) GetById(id interface{}) *gomock.Call <span class="cov8" title="1">{
+        mr.mock.ctrl.T.Helper()
+        return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetById", reflect.TypeOf((*MockPostRepo)(nil).GetById), id)
+}</span>
+
+// GetByUsername mocks base method
+func (m *MockPostRepo) GetByUsername(username string) ([]*post.Post, error) <span class="cov8" title="1">{
+        m.ctrl.T.Helper()
+        ret := m.ctrl.Call(m, "GetByUsername", username)
+        ret0, _ := ret[0].([]*post.Post)
+        ret1, _ := ret[1].(error)
+        return ret0, ret1
+}</span>
+
+// GetByUsername indicates an expected call of GetByUsername
+func (mr *MockPostRepoMockRecorder) GetByUsername(username interface{}) *gomock.Call <span class="cov8" title="1">{
+        mr.mock.ctrl.T.Helper()
+        return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetByUsername", reflect.TypeOf((*MockPostRepo)(nil).GetByUsername), username)
+}</span>
+
+// AddPost mocks base method
+func (m *MockPostRepo) AddPost(post *post.Post) <span class="cov8" title="1">{
+        m.ctrl.T.Helper()
+        m.ctrl.Call(m, "AddPost", post)
+}</span>
+
+// AddPost indicates an expected call of AddPost
+func (mr *MockPostRepoMockRecorder) AddPost(post interface{}) *gomock.Call <span class="cov8" title="1">{
+        mr.mock.ctrl.T.Helper()
+        return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddPost", reflect.TypeOf((*MockPostRepo)(nil).AddPost), post)
+}</span>
+
+// AddNewPost mocks base method
+func (m *MockPostRepo) AddNewPost(user *user.User, newPost *post.Post) <span class="cov8" title="1">{
+        m.ctrl.T.Helper()
+        m.ctrl.Call(m, "AddNewPost", user, newPost)
+}</span>
+
+// AddNewPost indicates an expected call of AddNewPost
+func (mr *MockPostRepoMockRecorder) AddNewPost(user, newPost interface{}) *gomock.Call <span class="cov8" title="1">{
+        mr.mock.ctrl.T.Helper()
+        return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddNewPost", reflect.TypeOf((*MockPostRepo)(nil).AddNewPost), user, newPost)
+}</span>
+
+// AddCommentToPost mocks base method
+func (m *MockPostRepo) AddCommentToPost(postId string, curUser *user.User, curComment comment.Comment) <span class="cov8" title="1">{
+        m.ctrl.T.Helper()
+        m.ctrl.Call(m, "AddCommentToPost", postId, curUser, curComment)
+}</span>
+
+// AddCommentToPost indicates an expected call of AddCommentToPost
+func (mr *MockPostRepoMockRecorder) AddCommentToPost(postId, curUser, curComment interface{}) *gomock.Call <span class="cov8" title="1">{
+        mr.mock.ctrl.T.Helper()
+        return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddCommentToPost", reflect.TypeOf((*MockPostRepo)(nil).AddCommentToPost), postId, curUser, curComment)
+}</span>
+
+// PostUpvote mocks base method
+func (m *MockPostRepo) PostUpvote(postId, curUserId string) <span class="cov8" title="1">{
+        m.ctrl.T.Helper()
+        m.ctrl.Call(m, "PostUpvote", postId, curUserId)
+}</span>
+
+// PostUpvote indicates an expected call of PostUpvote
+func (mr *MockPostRepoMockRecorder) PostUpvote(postId, curUserId interface{}) *gomock.Call <span class="cov8" title="1">{
+        mr.mock.ctrl.T.Helper()
+        return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PostUpvote", reflect.TypeOf((*MockPostRepo)(nil).PostUpvote), postId, curUserId)
+}</span>
+
+// PostDownvote mocks base method
+func (m *MockPostRepo) PostDownvote(postId, curUserId string) <span class="cov8" title="1">{
+        m.ctrl.T.Helper()
+        m.ctrl.Call(m, "PostDownvote", postId, curUserId)
+}</span>
+
+// PostDownvote indicates an expected call of PostDownvote
+func (mr *MockPostRepoMockRecorder) PostDownvote(postId, curUserId interface{}) *gomock.Call <span class="cov8" title="1">{
+        mr.mock.ctrl.T.Helper()
+        return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PostDownvote", reflect.TypeOf((*MockPostRepo)(nil).PostDownvote), postId, curUserId)
+}</span>
+
+// PostUnvote mocks base method
+func (m *MockPostRepo) PostUnvote(postId, curUserId string) <span class="cov8" title="1">{
+        m.ctrl.T.Helper()
+        m.ctrl.Call(m, "PostUnvote", postId, curUserId)
+}</span>
+
+// PostUnvote indicates an expected call of PostUnvote
+func (mr *MockPostRepoMockRecorder) PostUnvote(postId, curUserId interface{}) *gomock.Call <span class="cov8" title="1">{
+        mr.mock.ctrl.T.Helper()
+        return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PostUnvote", reflect.TypeOf((*MockPostRepo)(nil).PostUnvote), postId, curUserId)
+}</span>
+
+// CommentDelete mocks base method
+func (m *MockPostRepo) CommentDelete(postId, commentId, curUserId string) <span class="cov8" title="1">{
+        m.ctrl.T.Helper()
+        m.ctrl.Call(m, "CommentDelete", postId, commentId, curUserId)
+}</span>
+
+// CommentDelete indicates an expected call of CommentDelete
+func (mr *MockPostRepoMockRecorder) CommentDelete(postId, commentId, curUserId interface{}) *gomock.Call <span class="cov8" title="1">{
+        mr.mock.ctrl.T.Helper()
+        return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CommentDelete", reflect.TypeOf((*MockPostRepo)(nil).CommentDelete), postId, commentId, curUserId)
+}</span>
+
+// PostDelete mocks base method
+func (m *MockPostRepo) PostDelete(postId string) <span class="cov8" title="1">{
+        m.ctrl.T.Helper()
+        m.ctrl.Call(m, "PostDelete", postId)
+}</span>
+
+// PostDelete indicates an expected call of PostDelete
+func (mr *MockPostRepoMockRecorder) PostDelete(postId interface{}) *gomock.Call <span class="cov8" title="1">{
+        mr.mock.ctrl.T.Helper()
+        return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PostDelete", reflect.TypeOf((*MockPostRepo)(nil).PostDelete), postId)
+}</span>
+</pre>
+		
+		<pre class="file" id="file2" style="display: none">// Code generated by MockGen. DO NOT EDIT.
+// Source: user.go
+
+// Package handlers is a generated GoMock package.
+package handlers
+
+import (
+        "redditclone/pkg/session"
+        reflect "reflect"
+
+        gomock "github.com/golang/mock/gomock"
+)
+
+// MockSessionManager is a mock of SessionManager interface
+type MockSessionManager struct {
+        ctrl     *gomock.Controller
+        recorder *MockSessionManagerMockRecorder
+}
+
+// MockSessionManagerMockRecorder is the mock recorder for MockSessionManager
+type MockSessionManagerMockRecorder struct {
+        mock *MockSessionManager
+}
+
+// NewMockSessionManager creates a new mock instance
+func NewMockSessionManager(ctrl *gomock.Controller) *MockSessionManager <span class="cov8" title="1">{
+        mock := &amp;MockSessionManager{ctrl: ctrl}
+        mock.recorder = &amp;MockSessionManagerMockRecorder{mock}
+        return mock
+}</span>
+
+// EXPECT returns an object that allows the caller to indicate expected use
+func (m *MockSessionManager) EXPECT() *MockSessionManagerMockRecorder <span class="cov8" title="1">{
+        return m.recorder
+}</span>
+
+// Create mocks base method
+func (m *MockSessionManager) Create(userId string) (*session.Session, error) <span class="cov8" title="1">{
+        m.ctrl.T.Helper()
+        ret := m.ctrl.Call(m, "Create", userId)
+        ret0, _ := ret[0].(*session.Session)
+        ret1, _ := ret[1].(error)
+        return ret0, ret1
+}</span>
+
+// Create indicates an expected call of Create
+func (mr *MockSessionManagerMockRecorder) Create(userId interface{}) *gomock.Call <span class="cov8" title="1">{
+        mr.mock.ctrl.T.Helper()
+        return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Create", reflect.TypeOf((*MockSessionManager)(nil).Create), userId)
+}</span>
+
+// Check mocks base method
+func (m *MockSessionManager) Check(sessionId string) (bool, error) <span class="cov0" title="0">{
+        m.ctrl.T.Helper()
+        ret := m.ctrl.Call(m, "Check", sessionId)
+        ret0, _ := ret[0].(bool)
+        ret1, _ := ret[1].(error)
+        return ret0, ret1
+}</span>
+
+// Check indicates an expected call of Check
+func (mr *MockSessionManagerMockRecorder) Check(sessionId interface{}) *gomock.Call <span class="cov0" title="0">{
+        mr.mock.ctrl.T.Helper()
+        return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Check", reflect.TypeOf((*MockSessionManager)(nil).Check), sessionId)
+}</span>
+
+// GetUserIdBySessionId mocks base method
+func (m *MockSessionManager) GetUserIdBySessionId(sessionId string) (string, error) <span class="cov0" title="0">{
+        m.ctrl.T.Helper()
+        ret := m.ctrl.Call(m, "GetUserIdBySessionId", sessionId)
+        ret0, _ := ret[0].(string)
+        ret1, _ := ret[1].(error)
+        return ret0, ret1
+}</span>
+
+// GetUserIdBySessionId indicates an expected call of GetUserIdBySessionId
+func (mr *MockSessionManagerMockRecorder) GetUserIdBySessionId(sessionId interface{}) *gomock.Call <span class="cov0" title="0">{
+        mr.mock.ctrl.T.Helper()
+        return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUserIdBySessionId", reflect.TypeOf((*MockSessionManager)(nil).GetUserIdBySessionId), sessionId)
+}</span>
+</pre>
+		
+		<pre class="file" id="file3" style="display: none">package handlers
+
+import (
+        "encoding/json"
+        "fmt"
+        "io/ioutil"
+        "net/http"
+        "redditclone/pkg/session"
+        "redditclone/pkg/user"
+
+        "github.com/dgrijalva/jwt-go"
+)
+
+// mockgen -source=user.go -destination=user_mock.go -package=handlers UserRepoInterface
+
+type UserRepo interface {
+        Authorize(username, password string) (*user.User, error)
+        NewUser(username, password string) (*user.User, error)
+        GetUserById(Id string) (*user.User, error)
+}
+
+type SessionManager interface {
+        Create(userId string) (*session.Session, error)
+        Check(sessionId string) (bool, error)
+        GetUserIdBySessionId(sessionId string) (string, error)
+}
+
+type UserHandler struct {
+        UserRepo       UserRepo
+        SessionManager SessionManager
+}
+
+type Claims struct {
+        User      *user.User `json:"user"`
+        SessionId string     `json:"sessionid"`
+        jwt.StandardClaims
+}
+
+type Token struct {
+        Token string `json:"token"`
+}
+
+type JSONQuery struct {
+        Username string `json:"username"`
+        Password string `json:"password"`
+}
+
+type ErrorMessage struct {
+        Message string `json:"message"`
+}
+
+func (u *UserHandler) Login(w http.ResponseWriter, r *http.Request) <span class="cov8" title="1">{
+        var curQuery JSONQuery
+        read, _ := ioutil.ReadAll(r.Body)
+        err := json.Unmarshal(read, &amp;curQuery)
+        if err != nil </span><span class="cov8" title="1">{
+                w.WriteHeader(http.StatusUnauthorized)
+                return
+        }</span>
+        <span class="cov8" title="1">username := curQuery.Username
+        password := curQuery.Password
+        curUser, err := u.UserRepo.Authorize(username, password)
+        if err != nil </span><span class="cov8" title="1">{
+                if err == user.ErrNoUser </span><span class="cov8" title="1">{
+                        message := map[string]string{
+                                "message": "user not found",
+                        }
+                        jsonmessage, _ := json.Marshal(message)
+                        w.WriteHeader(http.StatusUnauthorized)
+                        w.Write(jsonmessage)
+                        return
+                }</span> else<span class="cov8" title="1"> if err == user.ErrBadPassword </span><span class="cov8" title="1">{
+                        message := map[string]string{
+                                "message": "invalid password",
+                        }
+                        jsonmessage, _ := json.Marshal(message)
+                        w.WriteHeader(http.StatusUnauthorized)
+                        w.Write(jsonmessage)
+                        return
+                }</span>
+        }
+        <span class="cov8" title="1">curSess, _ := u.SessionManager.Create(curUser.Id)
+        u.writeToken(curSess, w)</span>
+}
+
+func (u *UserHandler) Register(w http.ResponseWriter, r *http.Request) <span class="cov8" title="1">{
+        var curQuery JSONQuery
+        read, _ := ioutil.ReadAll(r.Body)
+        err := json.Unmarshal(read, &amp;curQuery)
+        if err != nil </span><span class="cov8" title="1">{
+                w.WriteHeader(http.StatusUnauthorized)
+                return
+        }</span>
+        <span class="cov8" title="1">username := curQuery.Username
+        password := curQuery.Password
+        curUser, err := u.UserRepo.NewUser(username, password)
+        if err != nil </span><span class="cov8" title="1">{
+                fmt.Println(err)
+                message := map[string][]map[string]string{
+                        "errors": []map[string]string{
+                                map[string]string{
+                                        "location": "body",
+                                        "param":    "username",
+                                        "value":    username,
+                                        "msg":      "already exists",
+                                },
+                        },
+                }
+                jsonmessage, _ := json.Marshal(message)
+                w.WriteHeader(http.StatusUnprocessableEntity)
+                w.Write(jsonmessage)
+                return
+        }</span>
+        <span class="cov8" title="1">curSess, _ := u.SessionManager.Create(curUser.Id)
+        u.writeToken(curSess, w)</span>
+}
+
+func (u *UserHandler) writeToken(curSession *session.Session, w http.ResponseWriter) <span class="cov8" title="1">{
+        curUser, _ := u.UserRepo.GetUserById(curSession.UserId)
+        tokenString, _ := session.ToToken(curUser, curSession.Id)
+        finToken := Token{
+                Token: tokenString,
+        }
+        res, _ := json.Marshal(finToken)
+        w.WriteHeader(http.StatusOK)
+        w.Write(res)
+}</span>
+</pre>
+		
+		<pre class="file" id="file4" style="display: none">// Code generated by MockGen. DO NOT EDIT.
+// Source: user.go
+
+// Package handlers is a generated GoMock package.
+package handlers
+
+import (
+        gomock "github.com/golang/mock/gomock"
+        user "redditclone/pkg/user"
+        reflect "reflect"
+)
+
+// MockUserRepo is a mock of UserRepo interface
+type MockUserRepo struct {
+        ctrl     *gomock.Controller
+        recorder *MockUserRepoMockRecorder
+}
+
+// MockUserRepoMockRecorder is the mock recorder for MockUserRepo
+type MockUserRepoMockRecorder struct {
+        mock *MockUserRepo
+}
+
+// NewMockUserRepo creates a new mock instance
+func NewMockUserRepo(ctrl *gomock.Controller) *MockUserRepo <span class="cov8" title="1">{
+        mock := &amp;MockUserRepo{ctrl: ctrl}
+        mock.recorder = &amp;MockUserRepoMockRecorder{mock}
+        return mock
+}</span>
+
+// EXPECT returns an object that allows the caller to indicate expected use
+func (m *MockUserRepo) EXPECT() *MockUserRepoMockRecorder <span class="cov8" title="1">{
+        return m.recorder
+}</span>
+
+// Authorize mocks base method
+func (m *MockUserRepo) Authorize(username, password string) (*user.User, error) <span class="cov8" title="1">{
+        m.ctrl.T.Helper()
+        ret := m.ctrl.Call(m, "Authorize", username, password)
+        ret0, _ := ret[0].(*user.User)
+        ret1, _ := ret[1].(error)
+        return ret0, ret1
+}</span>
+
+// Authorize indicates an expected call of Authorize
+func (mr *MockUserRepoMockRecorder) Authorize(username, password interface{}) *gomock.Call <span class="cov8" title="1">{
+        mr.mock.ctrl.T.Helper()
+        return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Authorize", reflect.TypeOf((*MockUserRepo)(nil).Authorize), username, password)
+}</span>
+
+// NewUser mocks base method
+func (m *MockUserRepo) NewUser(username, password string) (*user.User, error) <span class="cov8" title="1">{
+        m.ctrl.T.Helper()
+        ret := m.ctrl.Call(m, "NewUser", username, password)
+        ret0, _ := ret[0].(*user.User)
+        ret1, _ := ret[1].(error)
+        return ret0, ret1
+}</span>
+
+// NewUser indicates an expected call of NewUser
+func (mr *MockUserRepoMockRecorder) NewUser(username, password interface{}) *gomock.Call <span class="cov8" title="1">{
+        mr.mock.ctrl.T.Helper()
+        return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewUser", reflect.TypeOf((*MockUserRepo)(nil).NewUser), username, password)
+}</span>
+
+// GetUserById mocks base method
+func (m *MockUserRepo) GetUserById(Id string) (*user.User, error) <span class="cov8" title="1">{
+        m.ctrl.T.Helper()
+        ret := m.ctrl.Call(m, "GetUserById", Id)
+        ret0, _ := ret[0].(*user.User)
+        ret1, _ := ret[1].(error)
+        return ret0, ret1
+}</span>
+
+// GetUserById indicates an expected call of GetUserById
+func (mr *MockUserRepoMockRecorder) GetUserById(Id interface{}) *gomock.Call <span class="cov8" title="1">{
+        mr.mock.ctrl.T.Helper()
+        return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUserById", reflect.TypeOf((*MockUserRepo)(nil).GetUserById), Id)
+}</span>
+</pre>
+		
+		</div>
+	</body>
+	<script>
+	(function() {
+		var files = document.getElementById('files');
+		var visible;
+		files.addEventListener('change', onChange, false);
+		function select(part) {
+			if (visible)
+				visible.style.display = 'none';
+			visible = document.getElementById(part);
+			if (!visible)
+				return;
+			files.value = part;
+			visible.style.display = 'block';
+			location.hash = part;
+		}
+		function onChange() {
+			select(files.value);
+			window.scrollTo(0, 0);
+		}
+		if (location.hash != "") {
+			select(location.hash.substr(1));
+		}
+		if (!visible) {
+			select("file0");
+		}
+	})();
+	</script>
+</html>

@@ -1,94 +1,116 @@
 package post
 
 import (
+	"context"
+	"errors"
 	"redditclone/pkg/comment"
+	"redditclone/pkg/random"
+	"redditclone/pkg/user"
 	"sync"
+	"time"
+
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 type PostRepo struct {
-	data []*Post
-	mu   *sync.RWMutex
+	Collection CollectionHelper
+	mu         *sync.RWMutex
+	rn         *random.Generator
 }
 
-func NewRepo() *PostRepo {
+func NewRepo(ccol *mongo.Collection) *PostRepo {
 	return &PostRepo{
-		data: make([]*Post, 0, 10),
-		mu:   &sync.RWMutex{},
+		Collection: &mongoCollection{coll: ccol},
+		mu:         &sync.RWMutex{},
+		rn:         random.NewGenerator(true),
 	}
 }
 
 func (p *PostRepo) GetAll() ([]*Post, error) {
-	return p.data, nil
+	var result []*Post
+	cur, _ := p.Collection.Find(context.TODO(), bson.M{}, options.Find())
+	for cur.Next(context.TODO()) {
+		var elem Post
+		cur.Decode(&elem)
+		result = append(result, &elem)
+	}
+	cur.Close(context.TODO())
+	return result, nil
 }
 
 func (p *PostRepo) GetByCategory(category string) ([]*Post, error) {
-	res := make([]*Post, 0, 10)
-	p.mu.Lock()
-	defer p.mu.Unlock()
-	for i := 0; i < len(p.data); i++ {
-		if p.data[i].Category == category {
-			res = append(res, p.data[i])
-		}
+	var result []*Post
+	cur, _ := p.Collection.Find(context.TODO(), bson.M{"category": category})
+	for cur.Next(context.TODO()) {
+		var elem Post
+		cur.Decode(&elem)
+		result = append(result, &elem)
 	}
-	return res, nil
+	cur.Close(context.TODO())
+	return result, nil
 }
 
 func (p *PostRepo) GetById(id string) (*Post, error) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	for i := 0; i < len(p.data); i++ {
-		if p.data[i].Id == id {
-			return p.data[i], nil
-		}
+	var result Post
+	err := p.Collection.FindOne(context.TODO(), bson.M{"id": id}).Decode(&result)
+	if err != nil {
+		return nil, errors.New("User with given Id doesn't exist")
 	}
-	return nil, nil
+	return &result, nil
 }
 
 func (p *PostRepo) GetByUsername(username string) ([]*Post, error) {
-	res := make([]*Post, 0, 10)
-	p.mu.Lock()
-	defer p.mu.Unlock()
-	for i := 0; i < len(p.data); i++ {
-		if p.data[i].Author.Username == username {
-			res = append(res, p.data[i])
-		}
+	var result []*Post
+	cur, _ := p.Collection.Find(context.TODO(), bson.M{"author.username": username})
+	for cur.Next(context.TODO()) {
+		var elem Post
+		cur.Decode(&elem)
+		result = append(result, &elem)
 	}
-	return res, nil
+	cur.Close(context.TODO())
+	return result, nil
+}
+
+func (p *PostRepo) AddNewPost(user *user.User, newPost *Post) {
+	newPost.Author = user
+	newPost.Votes = []Vote{
+		Vote{
+			UserId: newPost.Author.Id,
+			Vote:   1,
+		},
+	}
+	newPost.Score = 1
+	newPost.Views = 0
+	newPost.Created = time.Now()
+	newPost.UpvotePercentage = 100
+	newPost.Comments = make([]comment.Comment, 0, 10)
+	newPost.Id = p.rn.GetString()
+	p.Collection.InsertOne(context.TODO(), newPost)
 }
 
 func (p *PostRepo) AddPost(post *Post) {
-	p.mu.Lock()
-	p.data = append(p.data, post)
-	p.mu.Unlock()
+	p.Collection.InsertOne(context.TODO(), post)
 }
 
-func (p *PostRepo) AddCommentToPost(postId string, comment comment.Comment) {
-	post, _ := p.GetById(postId)
-	p.mu.Lock()
-	post.Comments = append(post.Comments, comment)
-	p.mu.Unlock()
-}
-
-func (p *PostRepo) DeletePost(postId string) {
-	postInd := -1
-	p.mu.Lock()
-	for ind, val := range p.data {
-		if val.Id == postId {
-			postInd = ind
-		}
+func (p *PostRepo) AddCommentToPost(postId string, curUser *user.User, curComment comment.Comment) {
+	curComment = comment.Comment{
+		Created: time.Now(),
+		Author:  curUser,
+		Body:    curComment.Body,
+		Id:      p.rn.GetString(),
 	}
-	p.mu.Unlock()
-	if postInd != -1 {
-		p.mu.Lock()
-		p.data = append(p.data[:postInd], p.data[postInd+1:]...)
-		p.mu.Unlock()
-	}
+	filter := bson.M{"id": postId}
+	update := bson.M{"$push": bson.M{"comments": curComment}}
+	p.Collection.UpdateOne(context.TODO(), filter, update)
 }
 
 func (p *PostRepo) PostUpvote(postId, curUserId string) {
 	post, _ := p.GetById(postId)
 	found := false
-	p.mu.Lock()
 	for i := 0; i < len(post.Votes); i++ {
 		if post.Votes[i].UserId == curUserId {
 			if post.Votes[i].Vote == -1 {
@@ -108,13 +130,13 @@ func (p *PostRepo) PostUpvote(postId, curUserId string) {
 		post.Score += 1
 		post.UpvotePercentage = post.GetUpvotePercentage()
 	}
-	p.mu.Unlock()
+	p.PostDelete(postId)
+	p.AddPost(post)
 }
 
 func (p *PostRepo) PostDownvote(postId, curUserId string) {
 	post, _ := p.GetById(postId)
 	found := false
-	p.mu.Lock()
 	for i := 0; i < len(post.Votes); i++ {
 		if post.Votes[i].UserId == curUserId {
 			if post.Votes[i].Vote == 1 {
@@ -134,13 +156,13 @@ func (p *PostRepo) PostDownvote(postId, curUserId string) {
 		post.Score -= 1
 		post.UpvotePercentage = post.GetUpvotePercentage()
 	}
-	p.mu.Unlock()
+	p.PostDelete(postId)
+	p.AddPost(post)
 }
 
 func (p *PostRepo) PostUnvote(postId, curUserId string) {
 	post, _ := p.GetById(postId)
 	eraseInd := -1
-	p.mu.Lock()
 	for i := 0; i < len(post.Votes); i++ {
 		if post.Votes[i].UserId == curUserId {
 			if post.Votes[i].Vote == 1 {
@@ -155,34 +177,23 @@ func (p *PostRepo) PostUnvote(postId, curUserId string) {
 		post.Votes = append(post.Votes[:eraseInd], post.Votes[eraseInd+1:]...)
 		post.UpvotePercentage = post.GetUpvotePercentage()
 	}
-	p.mu.Unlock()
+	p.PostDelete(postId)
+	p.AddPost(post)
 }
 
 func (p *PostRepo) CommentDelete(postId, commentId, curUserId string) {
 	post, _ := p.GetById(postId)
-	commentInd := -1
-	p.mu.Lock()
-	for i := 0; i < len(post.Comments); i++ {
-		if post.Comments[i].Id == commentId && post.Comments[i].Author.Id == curUserId {
-			commentInd = i
+	for i, curComment := range post.Comments {
+		if curComment.Author.Id == curUserId && curComment.Id == commentId {
+			post.Comments = append(post.Comments[:i], post.Comments[i+1:]...)
+			break
 		}
 	}
-	if commentInd != -1 {
-		post.Comments = append(post.Comments[:commentInd], post.Comments[commentInd+1:]...)
-	}
-	p.mu.Unlock()
+	p.PostDelete(postId)
+	p.AddPost(post)
 }
 
 func (p *PostRepo) PostDelete(postId string) {
-	postInd := -1
-	p.mu.Lock()
-	for i := 0; i < len(p.data); i++ {
-		if p.data[i].Id == postId {
-			postInd = i
-		}
-	}
-	if postInd != -1 {
-		p.data = append(p.data[:postInd], p.data[postInd+1:]...)
-	}
-	p.mu.Unlock()
+	filter := bson.M{"id": postId}
+	p.Collection.DeleteOne(context.TODO(), filter)
 }

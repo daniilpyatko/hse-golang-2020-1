@@ -7,24 +7,24 @@ import (
 )
 
 type Vote struct {
-	UserId string `json:"user"`
-	Vote   int    `json:"vote"`
+	UserId string `json:"user" bson:"user"`
+	Vote   int    `json:"vote" bson:"vote"`
 }
 
 type Post struct {
-	Score            int               `json:"score"`
-	Views            int               `json:"views"`
-	Type             string            `json:"type"`
-	Title            string            `json:"title"`
-	Author           *user.User        `json:"author"`
-	Category         string            `json:"category"`
-	Text             string            `json:"text"`
-	Url              string            `json:"url"`
-	Votes            []Vote            `json:"votes"`
-	Comments         []comment.Comment `json:"comments"`
-	Created          time.Time         `json:"created"`
-	UpvotePercentage int               `json:"upvotePercentage"`
-	Id               string            `json:"id"`
+	Score            int               `json:"score" bson:"score"`
+	Views            int               `json:"views" bson:"views"`
+	Type             string            `json:"type" bson:"type"`
+	Title            string            `json:"title"  bson:"title"`
+	Author           *user.User        `json:"author" bson:"author"`
+	Category         string            `json:"category" bson:"category"`
+	Text             string            `json:"text" bson:"text"`
+	Url              string            `json:"url" bson:"url"`
+	Votes            []Vote            `json:"votes" bson:"votes"`
+	Comments         []comment.Comment `json:"comments" bson:"comments"`
+	Created          time.Time         `json:"created" bson:"created"`
+	UpvotePercentage int               `json:"upvotePercentage" bson:"upvotePercentage"`
+	Id               string            `json:"id" bson:"id"`
 }
 
 func (p *Post) GetUpvotePercentage() int {

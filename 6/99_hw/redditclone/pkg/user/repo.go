@@ -1,21 +1,24 @@
 package user
 
 import (
-	"crypto/rand"
-	"encoding/base64"
+	"database/sql"
 	"errors"
+	"fmt"
+	"redditclone/pkg/random"
 	"sync"
 )
 
 type UserRepo struct {
-	data map[string]*User
-	mu   *sync.RWMutex
+	DB *sql.DB
+	mu *sync.RWMutex
+	rn *random.Generator
 }
 
-func NewRepo() *UserRepo {
+func NewRepo(db *sql.DB) *UserRepo {
 	return &UserRepo{
-		data: make(map[string]*User),
-		mu:   &sync.RWMutex{},
+		DB: db,
+		mu: &sync.RWMutex{},
+		rn: random.NewGenerator(true),
 	}
 }
 
@@ -27,16 +30,16 @@ var (
 func (u *UserRepo) Authorize(username, password string) (*User, error) {
 	u.mu.Lock()
 	defer u.mu.Unlock()
-	for _, curUser := range u.data {
-		if curUser.Username == username {
-			if curUser.password == password {
-				return curUser, nil
-			} else {
-				return nil, ErrBadPassword
-			}
-		}
+	curUser := User{}
+	err := u.DB.QueryRow("SELECT id, username, password FROM users WHERE username = ?", username).
+		Scan(&curUser.Id, &curUser.Username, &curUser.password)
+	if err != nil {
+		return nil, ErrNoUser
 	}
-	return nil, ErrNoUser
+	if curUser.password != password {
+		return nil, ErrBadPassword
+	}
+	return &curUser, nil
 }
 
 var (
@@ -45,21 +48,28 @@ var (
 
 func (u *UserRepo) NewUser(username, password string) (*User, error) {
 	u.mu.Lock()
-	for _, curUser := range u.data {
-		if curUser.Username == username {
-			return nil, ErrUserRegistered
+	defer u.mu.Unlock()
+	curUser := User{}
+	err := u.DB.QueryRow("SELECT id, username, password FROM users WHERE username = ?", username).
+		Scan(&curUser.Id, &curUser.Username, &curUser.password)
+	if err == nil {
+		return nil, ErrUserRegistered
+	} else {
+		randId := u.rn.GetString()
+		newUser := &User{
+			Username: username,
+			password: password,
+			Id:       randId,
 		}
+		fmt.Println(newUser)
+		u.DB.Exec(
+			"INSERT INTO users (`id`, `username`, `password`) VALUES (?, ?, ?)",
+			newUser.Id,
+			newUser.Username,
+			newUser.password,
+		)
+		return newUser, nil
 	}
-	rnd := make([]byte, 16)
-	rand.Read(rnd)
-	randId := base64.URLEncoding.EncodeToString(rnd)
-	u.data[randId] = &User{
-		Username: username,
-		password: password,
-		Id:       randId,
-	}
-	u.mu.Unlock()
-	return u.data[randId], nil
 }
 
 var (
@@ -67,9 +77,11 @@ var (
 )
 
 func (u *UserRepo) GetUserById(Id string) (*User, error) {
-	curUser, ok := u.data[Id]
-	if !ok {
+	curUser := User{}
+	err := u.DB.QueryRow("SELECT id, username, password FROM users WHERE id = ?", Id).
+		Scan(&curUser.Id, &curUser.Username, &curUser.password)
+	if err != nil {
 		return nil, ErrUserNotFound
 	}
-	return curUser, nil
+	return &curUser, nil
 }

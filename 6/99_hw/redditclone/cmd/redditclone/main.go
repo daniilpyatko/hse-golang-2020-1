@@ -1,30 +1,52 @@
 package main
 
 import (
+	"context"
+	"database/sql"
 	"html/template"
 	"net/http"
 	"redditclone/pkg/handlers"
 	"redditclone/pkg/middleware"
 	"redditclone/pkg/post"
+	"redditclone/pkg/session"
 	"redditclone/pkg/user"
 
+	_ "github.com/go-sql-driver/mysql"
 	"github.com/gorilla/mux"
+	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 	"go.uber.org/zap"
 )
 
 func main() {
+	dsn := "root:My111111@tcp(localhost:3306)/db?"
+	dsn += "&charset=utf8"
+	db, err := sql.Open("mysql", dsn)
+	db.Exec("CREATE TABLE IF NOT EXISTS sessions (`id` VARCHAR(255), `userid` VARCHAR(255));")
+	db.Exec("CREATE TABLE IF NOT EXISTS users (`id` VARCHAR(255), `username` VARCHAR(255), `password` VARCHAR(255));")
+	err = db.Ping()
+	if err != nil {
+		panic(err)
+	}
+	connectionURI := "mongodb://localhost:27017"
+	client, err := mongo.NewClient(options.Client().ApplyURI(connectionURI))
+	err = client.Connect(context.TODO())
+	collection := client.Database("db").Collection("posts")
+
 	tmpl := template.Must(template.ParseGlob("./template/*html"))
 	zapLogger, _ := zap.NewProduction()
 	defer zapLogger.Sync()
 	logger := zapLogger.Sugar()
-	postRepo := post.NewRepo()
-	userRepo := user.NewRepo()
+	postRepo := post.NewRepo(collection)
+	userRepo := user.NewRepo(db)
+	sessionManager := session.NewSessionManager(db)
 	postHandler := handlers.PostHandler{
 		PostRepo: postRepo,
 		UserRepo: userRepo,
 	}
 	userHandler := handlers.UserHandler{
-		UserRepo: userRepo,
+		UserRepo:       userRepo,
+		SessionManager: sessionManager,
 	}
 	rMain := mux.NewRouter()
 	rWithAuth := mux.NewRouter()
@@ -48,7 +70,7 @@ func main() {
 	rWithAuth.HandleFunc("/api/post/{post_id}/{comment_id}", postHandler.CommentDelete).Methods("DELETE")
 	rWithAuth.HandleFunc("/api/post/{post_id}", postHandler.PostDelete).Methods("DELETE")
 
-	rWithAuthMiddleware := middleware.Auth(logger, rWithAuth)
+	rWithAuthMiddleware := middleware.Auth(sessionManager, logger, rWithAuth)
 
 	rMain.Handle("/api/posts", rWithAuthMiddleware).Methods("POST")
 	rMain.Handle("/api/post/{post_id}", rWithAuthMiddleware).Methods("POST")
