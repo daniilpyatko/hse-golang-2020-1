@@ -14,8 +14,7 @@ var (
 func getRecord(mkey string) (string, error) {
 	println("get", mkey)
 	// получает запись, https://redis.io/commands/get
-	data, err := c.Do("GET", mkey)
-	item, err := redis.String(data, err)
+	item, err := redis.String(c.Do("GET", mkey))
 	// если записи нету, то для этого есть специальная ошибка, её надо обрабатывать отдеьно, это почти штатная ситуация, а не что-то страшное
 	if err == redis.ErrNil {
 		fmt.Println("Record not found in redis (return value is nil)")
@@ -70,7 +69,7 @@ func main() {
 
 	keys := []interface{}{mkey, mkey + "_not_exist", "sure_not_exist"}
 
-	// https: //redis.io/commands/mget
+	// https://redis.io/commands/mget
 	reply, err := redis.Strings(c.Do("MGET", keys...))
 	PanicOnErr(err)
 	fmt.Println(reply)

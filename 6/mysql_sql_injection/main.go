@@ -60,6 +60,7 @@ func main() {
 		// параметры не экранированы должным образом
 		// мы подставляем в запрос параметр как есть
 		query := fmt.Sprintf("SELECT id, login FROM users WHERE login = '%s' LIMIT 1", inputLogin)
+		// SELECT id, login FROM users WHERE login = ''; --
 
 		body += fmt.Sprintln("Sprint query:", query)
 
