@@ -6,6 +6,7 @@ require (
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible
 	github.com/go-sql-driver/mysql v1.5.0
 	github.com/golang/mock v1.4.3
+	github.com/golang/protobuf v1.3.5 // indirect
 	github.com/gorilla/mux v1.7.4
 	github.com/stretchr/testify v1.4.0
 	github.com/vektra/mockery v0.0.0-20181123154057-e78b021dcbb5 // indirect
