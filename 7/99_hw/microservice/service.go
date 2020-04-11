@@ -6,6 +6,7 @@ import (
 	"errors"
 	"net"
 	"regexp"
+	"sync"
 	"time"
 
 	"google.golang.org/grpc/codes"
@@ -26,6 +27,7 @@ type Service struct {
 	WriteStatTo []chan Stat
 	ClientAddr  []string
 	NameToAddr  map[string]string
+	mu          *sync.RWMutex
 }
 
 func (s *Service) authUnaryInterceptor(
@@ -112,6 +114,7 @@ func StartMyMicroservice(ctx context.Context, addr string, ACLData string) error
 			"Add":        "/main.Biz/Add",
 			"Statistics": "/main.Admin/Statistics",
 		},
+		mu: &sync.RWMutex{},
 	}
 	go service.Start(ctx, lis, &service)
 	return nil
@@ -157,8 +160,10 @@ func (a *Admin) Logging(nothing *Nothing, stream Admin_LoggingServer) error {
 	c, _ := peer.FromContext(stream.Context())
 	a.service.Log("Logging", md.Get("consumer")[0])
 	cur := make(chan Event)
+	a.service.mu.Lock()
 	a.service.WriteTo = append(a.service.WriteTo, cur)
 	a.service.ClientAddr = append(a.service.ClientAddr, c.Addr.String())
+	a.service.mu.Unlock()
 	for {
 		curEvent := <-cur
 		stream.Send(&curEvent)
@@ -176,7 +181,9 @@ func (a *Admin) Statistics(interval *StatInterval, stream Admin_StatisticsServer
 		ByMethod:   make(map[string]uint64),
 	}
 	ch := make(chan Stat)
+	a.service.mu.Lock()
 	a.service.WriteStatTo = append(a.service.WriteStatTo, ch)
+	a.service.mu.Unlock()
 	for {
 		select {
 		case <-ticker.C:
