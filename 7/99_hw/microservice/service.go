@@ -77,13 +77,13 @@ func (s *Service) authStreamInterceptor(srv interface{}, ss grpc.ServerStream, i
 	return err
 }
 
-func (s *Service) Start(ctx context.Context, lis net.Listener, service *Service) error {
+func (s *Service) Start(ctx context.Context, lis net.Listener) error {
 	server := grpc.NewServer(
 		grpc.UnaryInterceptor(s.authUnaryInterceptor),
 		grpc.StreamInterceptor(s.authStreamInterceptor),
 	)
-	RegisterBizServer(server, NewBiz(service))
-	RegisterAdminServer(server, NewAdmin(service))
+	RegisterBizServer(server, NewBiz(s))
+	RegisterAdminServer(server, NewAdmin(s))
 	go server.Serve(lis)
 	defer func() {
 		server.Stop()
@@ -116,7 +116,7 @@ func StartMyMicroservice(ctx context.Context, addr string, ACLData string) error
 		},
 		mu: &sync.RWMutex{},
 	}
-	go service.Start(ctx, lis, &service)
+	go service.Start(ctx, lis)
 	return nil
 }
 
