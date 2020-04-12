@@ -21,13 +21,14 @@ import (
 // обращаю ваше внимание - в этом задании запрещены глобальные переменные
 
 type Service struct {
-	Allowed     map[string][]string
-	Addr        string
-	WriteTo     []chan Event
-	WriteStatTo []chan Stat
-	ClientAddr  []string
-	NameToAddr  map[string]string
-	mu          *sync.RWMutex
+	Allowed         map[string][]string
+	AllowedCompiled map[string][]*regexp.Regexp
+	Addr            string
+	WriteTo         map[chan Event]bool
+	WriteStatTo     map[chan Stat]bool
+	ClientAddr      map[chan Event]string
+	NameToAddr      map[string]string
+	mu              *sync.RWMutex
 }
 
 func (s *Service) authUnaryInterceptor(
@@ -44,8 +45,8 @@ func (s *Service) authUnaryInterceptor(
 	consumer := md.Get("consumer")[0]
 	curMethod := info.FullMethod
 	matched := false
-	for _, cur := range s.Allowed[consumer] {
-		if ok, _ := regexp.MatchString(cur, curMethod); ok {
+	for _, cur := range s.AllowedCompiled[consumer] {
+		if ok := cur.MatchString(curMethod); ok {
 			matched = true
 		}
 	}
@@ -65,8 +66,8 @@ func (s *Service) authStreamInterceptor(srv interface{}, ss grpc.ServerStream, i
 	consumer := md.Get("consumer")[0]
 	curMethod := info.FullMethod
 	matched := false
-	for _, cur := range s.Allowed[consumer] {
-		if ok, _ := regexp.MatchString(cur, curMethod); ok {
+	for _, cur := range s.AllowedCompiled[consumer] {
+		if ok := cur.MatchString(curMethod); ok {
 			matched = true
 		}
 	}
@@ -105,8 +106,9 @@ func StartMyMicroservice(ctx context.Context, addr string, ACLData string) error
 		return errors.New("Couldn't unmarshal ACLData")
 	}
 	service := Service{
-		Allowed: allowed,
-		Addr:    addr,
+		Allowed:         allowed,
+		AllowedCompiled: make(map[string][]*regexp.Regexp),
+		Addr:            addr,
 		NameToAddr: map[string]string{
 			"Logging":    "/main.Admin/Logging",
 			"Check":      "/main.Biz/Check",
@@ -114,7 +116,15 @@ func StartMyMicroservice(ctx context.Context, addr string, ACLData string) error
 			"Add":        "/main.Biz/Add",
 			"Statistics": "/main.Admin/Statistics",
 		},
-		mu: &sync.RWMutex{},
+		WriteTo:     make(map[chan Event]bool),
+		WriteStatTo: make(map[chan Stat]bool),
+		ClientAddr:  make(map[chan Event]string),
+		mu:          &sync.RWMutex{},
+	}
+	for k, ar := range service.Allowed {
+		for _, val := range ar {
+			service.AllowedCompiled[k] = append(service.AllowedCompiled[k], regexp.MustCompile(val))
+		}
 	}
 	go service.Start(ctx, lis)
 	return nil
@@ -132,12 +142,13 @@ func (s *Service) Log(from string, consumer string) {
 	writeString := s.NameToAddr[from]
 
 	// Writing to Log
-	for ind, ch := range s.WriteTo {
-		ev := Event{}
-		ev.Consumer = consumer
-		ev.Method = writeString
-		ev.Host = s.ClientAddr[ind]
-		ch <- ev
+	for k, _ := range s.WriteTo {
+		ev := Event{
+			Consumer: consumer,
+			Method:   writeString,
+			Host:     s.ClientAddr[k],
+		}
+		k <- ev
 	}
 
 	// Writing to Stat
@@ -149,8 +160,8 @@ func (s *Service) Log(from string, consumer string) {
 			consumer: 1,
 		},
 	}
-	for _, ch := range s.WriteStatTo {
-		ch <- newStat
+	for k, _ := range s.WriteStatTo {
+		k <- newStat
 	}
 
 }
@@ -161,12 +172,19 @@ func (a *Admin) Logging(nothing *Nothing, stream Admin_LoggingServer) error {
 	a.service.Log("Logging", md.Get("consumer")[0])
 	cur := make(chan Event)
 	a.service.mu.Lock()
-	a.service.WriteTo = append(a.service.WriteTo, cur)
-	a.service.ClientAddr = append(a.service.ClientAddr, c.Addr.String())
+	a.service.WriteTo[cur] = true
+	a.service.ClientAddr[cur] = c.Addr.String()
 	a.service.mu.Unlock()
 	for {
 		curEvent := <-cur
-		stream.Send(&curEvent)
+		err := stream.Send(&curEvent)
+		if err != nil {
+			a.service.mu.Lock()
+			delete(a.service.WriteTo, cur)
+			delete(a.service.ClientAddr, cur)
+			a.service.mu.Unlock()
+			return nil
+		}
 	}
 	return nil
 }
@@ -182,12 +200,18 @@ func (a *Admin) Statistics(interval *StatInterval, stream Admin_StatisticsServer
 	}
 	ch := make(chan Stat)
 	a.service.mu.Lock()
-	a.service.WriteStatTo = append(a.service.WriteStatTo, ch)
+	a.service.WriteStatTo[ch] = true
 	a.service.mu.Unlock()
 	for {
 		select {
 		case <-ticker.C:
-			stream.Send(&curStat)
+			err := stream.Send(&curStat)
+			if err != nil {
+				a.service.mu.Lock()
+				delete(a.service.WriteStatTo, ch)
+				a.service.mu.Unlock()
+				return nil
+			}
 			curStat = Stat{
 				ByConsumer: make(map[string]uint64),
 				ByMethod:   make(map[string]uint64),
