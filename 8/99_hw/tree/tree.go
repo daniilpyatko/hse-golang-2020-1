@@ -17,10 +17,12 @@ type File struct {
 	IsDir bool
 }
 
-func rec(curPath string, curIden string, full bool, outBuf *bytes.Buffer) {
-	fl, _ := ioutil.ReadDir(curPath)
+func rec(curPath string, curIden string, full bool, outBuf *bytes.Buffer) error {
+	fl, err := ioutil.ReadDir(curPath)
+	if err != nil {
+		return err
+	}
 	files := make([]File, 0)
-	// fmt.Println(curPath, len(fl))
 	for _, f := range fl {
 		if f.IsDir() {
 			files = append(files, File{
@@ -57,7 +59,6 @@ func rec(curPath string, curIden string, full bool, outBuf *bytes.Buffer) {
 			}
 			newPath := curPath + "/" + curFile.Name
 			rec(newPath, newIden, full, outBuf)
-			// curIden = strings.TrimSuffix(curIden, string(curIden[len(curIden)-1:]))
 		} else {
 			if full {
 				outBuf.WriteString(curIden + curPrefix + curFile.Name)
@@ -70,13 +71,18 @@ func rec(curPath string, curIden string, full bool, outBuf *bytes.Buffer) {
 			}
 		}
 	}
-
+	return nil
 }
 
 func dirTree(out io.Writer, path string, full bool) error {
 	outBuf := bytes.NewBuffer(nil)
-	rec(path, "", full, outBuf)
-	// fmt.Println(outBuf.String())
-	out.Write(outBuf.Bytes())
+	err := rec(path, "", full, outBuf)
+	if err != nil {
+		return err
+	}
+	_, err = out.Write(outBuf.Bytes())
+	if err != nil {
+		return err
+	}
 	return nil
 }
