@@ -208,7 +208,7 @@ func TestLogging(t *testing.T) {
 	wg.Add(2)
 	go func() {
 		defer wg.Done()
-		for i := 0; i < 4; i++ {
+		for i := 0; i < 3; i++ {
 			evt, err := logStream1.Recv()
 			// log.Println("logger 1", evt, err)
 			if err != nil {
@@ -275,6 +275,10 @@ func TestLogging(t *testing.T) {
 	if !reflect.DeepEqual(logData2, expectedLogData2) {
 		t.Fatalf("logs2 dont match\nhave %+v\nwant %+v", logData2, expectedLogData2)
 	}
+}
+
+func TestLoggingDeletion(t *testing.T) {
+
 }
 
 func TestStat(t *testing.T) {

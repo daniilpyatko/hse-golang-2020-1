@@ -4,6 +4,7 @@ import (
 	context "context"
 	"encoding/json"
 	"errors"
+	fmt "fmt"
 	"net"
 	"regexp"
 	"sync"
@@ -179,6 +180,7 @@ func (a *Admin) Logging(nothing *Nothing, stream Admin_LoggingServer) error {
 		curEvent := <-cur
 		err := stream.Send(&curEvent)
 		if err != nil {
+			fmt.Println("HERE")
 			a.service.mu.Lock()
 			delete(a.service.WriteTo, cur)
 			delete(a.service.ClientAddr, cur)
